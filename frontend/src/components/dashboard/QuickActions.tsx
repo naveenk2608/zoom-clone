@@ -1,10 +1,12 @@
+"use client";
+
 import clsx from "clsx";
 import { Calendar, SquarePlus, Video } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Card } from "@/components/ui/Card";
-import { NotAvailable } from "@/components/ui/Tooltip";
+import { useStartMeeting } from "@/hooks/useStartMeeting";
 
 const ACTION_CLASSES = "flex flex-col items-center gap-2 rounded-xl p-1 hover:brightness-95";
 const TILE_CLASSES = "flex size-13 items-center justify-center rounded-xl text-white";
@@ -12,18 +14,24 @@ const LABEL_CLASSES = "text-[13px] font-semibold text-text-secondary";
 
 /** The three big buttons at the top right of Home. */
 export function QuickActions() {
+  const { pending, startNewMeeting } = useStartMeeting();
+
   return (
     <Card className="grid grid-cols-3 px-4 py-6">
       <QuickActionLink href="/schedule" label="Schedule" icon={<ScheduleIcon />} />
       <QuickActionLink href="/join" label="Join" icon={<SquarePlus size={26} />} />
-      <NotAvailable>
-        <button type="button" aria-disabled="true" className={ACTION_CLASSES}>
-          <span className={clsx(TILE_CLASSES, "bg-zoom-orange")}>
-            <Video size={28} fill="currentColor" />
-          </span>
-          <span className={LABEL_CLASSES}>New meeting</span>
-        </button>
-      </NotAvailable>
+      {/* Zoom labels this one "Host"; the brief calls it New meeting. */}
+      <button
+        type="button"
+        onClick={startNewMeeting}
+        disabled={pending}
+        className={clsx(ACTION_CLASSES, "disabled:cursor-wait")}
+      >
+        <span className={clsx(TILE_CLASSES, "bg-zoom-orange")}>
+          <Video size={28} fill="currentColor" />
+        </span>
+        <span className={LABEL_CLASSES}>New meeting</span>
+      </button>
     </Card>
   );
 }
@@ -48,7 +56,7 @@ function ScheduleIcon() {
   return (
     <span className="relative flex">
       <Calendar size={26} />
-      <span className="absolute inset-x-0 bottom-[4px] text-center text-[9px] leading-none font-bold">
+      <span className="absolute inset-x-0 bottom-1 text-center text-[9px] leading-none font-bold">
         19
       </span>
     </span>

@@ -49,3 +49,7 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **Meetings is highlighted in the sidebar on the Schedule pages**, as in Zoom. It links to Home, where the meetings list lives in this demo.
 - **The Join box checks the meeting before leaving the page.** `parseMeetingInput` accepts an ID with spaces or dashes, or any URL containing `/j/<11 digits>`. Then `GET /meetings/{code}` turns unknown, cancelled and ended meetings into an inline error instead of a dead end on the next page.
 - **Join error messages match the backend's wording** (`lib/meetingStatus.ts`), so a meeting reads "has ended" the same way whether the browser or the server found it.
+- **`useStartMeeting` is shared by Host, New meeting and Start.** It calls the API, saves the join session (mic on, camera from the meeting's host-video setting) and opens the room. The button stays disabled until the room loads, so a double click can't start two meetings.
+- **The join session is checked when read back.** sessionStorage can hold anything, so `loadJoinSession` checks the stored shape and treats damaged data as "not joined".
+- **The Start button sits beside the title** on a meeting card; the bottom row has no room for three controls in the narrow column. It reads "Join" for a meeting that is already running, where `/start` rejoins as host.
+- **A placeholder room until Phase 5.** `/meeting/{code}` shows the meeting and your role, and sends a tab with no saved session to `/j/{code}`. Phase 5 replaces it with the real room.

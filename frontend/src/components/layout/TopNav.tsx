@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 
 import { AvatarMenu } from "@/components/layout/AvatarMenu";
 import { NotAvailable } from "@/components/ui/Tooltip";
+import { useStartMeeting } from "@/hooks/useStartMeeting";
 
 // Zoom's marketing links. Shown on wide screens only, as placeholders.
 const MARKETING_LINKS = ["Products", "Solutions", "Resources", "Plans & Pricing"];
@@ -10,6 +13,8 @@ const NAV_ITEM_CLASSES = "rounded text-base font-semibold text-zoom-navy/80 hove
 
 /** The white top bar of the web portal. */
 export function TopNav() {
+  const { pending, startNewMeeting } = useStartMeeting();
+
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center border-b border-black/10 bg-white px-4 md:px-6">
       {/* A plain text wordmark in Zoom's blue, not Zoom's logo file. */}
@@ -42,11 +47,15 @@ export function TopNav() {
         <Link href="/join" className={NAV_ITEM_CLASSES}>
           Join
         </Link>
-        <NotAvailable>
-          <button type="button" aria-disabled="true" className={NAV_ITEM_CLASSES}>
-            Host
-          </button>
-        </NotAvailable>
+        {/* Zoom's Host starts a new meeting straight away. */}
+        <button
+          type="button"
+          onClick={startNewMeeting}
+          disabled={pending}
+          className={`${NAV_ITEM_CLASSES} disabled:cursor-wait`}
+        >
+          Host
+        </button>
         <AvatarMenu />
       </nav>
     </header>
