@@ -3,10 +3,10 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import Meeting, MeetingSession, Participant, User
-from app.services.lifecycle import end_session
+from app.services.lifecycle import end_session, join_meeting, start_meeting
 from app.services.meetings import INVALID_MEETING_ID
 from app.utils.time import utc_now
 from tests.factories import add_scheduled_meeting, add_user
@@ -121,3 +121,52 @@ def test_starting_links_the_host_to_their_user(client: TestClient, db: Session, 
     participant = db.get(Participant, joined["participant"]["id"])
     assert participant is not None
     assert participant.user_id == alex.id
+
+
+# Two people join at the same moment. Each request runs in its own database
+# session, and both look before either writes, so both see no live session and
+# both try to start one. The one-live-session index rejects the second INSERT.
+
+
+def load_meeting(db: Session, meeting_id: int) -> Meeting:
+    meeting = db.get(Meeting, meeting_id)
+    assert meeting is not None
+    return meeting
+
+
+def test_joining_at_the_same_moment_shares_one_session(
+    db: Session, session_factory: sessionmaker[Session], alex: User
+) -> None:
+    meeting_id = add_scheduled_meeting(db, alex, utc_now() + timedelta(hours=1)).id
+
+    with session_factory() as early, session_factory() as late:
+        late_view = load_meeting(late, meeting_id)
+        assert late_view.live_session is None  # read before the early join commits
+        winner_id = join_meeting(early, load_meeting(early, meeting_id), "Sam").session_id
+
+        late_join = join_meeting(late, late_view, "Lee")
+
+        assert late_join.session_id == winner_id
+    sessions = db.scalars(
+        select(MeetingSession).where(MeetingSession.meeting_id == meeting_id)
+    ).all()
+    assert len(sessions) == 1
+    assert {person.display_name for person in sessions[0].participants} == {"Sam", "Lee"}
+
+
+def test_starting_while_someone_joins_shares_one_session(
+    db: Session, session_factory: sessionmaker[Session], alex: User
+) -> None:
+    meeting_id = add_scheduled_meeting(db, alex, utc_now() + timedelta(hours=1)).id
+
+    with session_factory() as attendee, session_factory() as host:
+        host_view = load_meeting(host, meeting_id)
+        host_user = host.get(User, alex.id)
+        assert host_user is not None
+        assert host_view.live_session is None  # read before the attendee's join commits
+        winner_id = join_meeting(attendee, load_meeting(attendee, meeting_id), "Sam").session_id
+
+        host_join = start_meeting(host, host_user, host_view)
+
+        assert host_join.session_id == winner_id
+        assert host_join.role == "host"

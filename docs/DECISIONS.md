@@ -26,4 +26,4 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **Tests use a temporary SQLite file per test** and a new session per request, so a missing commit fails a test.
 - **Seeded times fall in office hours in India** (10:00–18:00, Asia/Kolkata), relative to today, plus one meeting later today while office time remains. `seed_if_empty` takes an optional `now`, so tests can fix the clock.
 - **The seed is split into three files:** `seed.py` (what), `seed_time.py` (when) and `seed_rows.py` (how rows are built), to keep files short.
-- **Known limitation:** if two people join a not-yet-started scheduled meeting at the same instant, the one-live-session index lets only one create the session. The other gets an error and can retry.
+- **Simultaneous first joins:** if two people join a not-yet-started meeting at the same instant, both try to start a session. The one-live-session index rejects the second INSERT, and that request rolls back and joins the session that won (`live_or_new_session`), so nobody sees an error.

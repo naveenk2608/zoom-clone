@@ -4,6 +4,7 @@ import secrets
 from datetime import datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Meeting, MeetingSession, Participant, User
@@ -59,9 +60,33 @@ def check_can_join(meeting: Meeting) -> None:
 
 
 def live_or_new_session(db: Session, meeting: Meeting) -> MeetingSession:
+    """The meeting's live session, or a new one when none is running.
+
+    Two people can join at the same moment and both find no live session. The
+    one-live-session index then rejects the second INSERT, so that request rolls
+    back and joins the session that won. Because of that rollback, call this
+    before any other write in the transaction.
+    """
     if meeting.live_session is not None:
         return meeting.live_session
-    return start_session(db, meeting)
+    session = start_session(db, meeting)
+    try:
+        db.flush()  # INSERT now, so a clash with another join shows up here
+        return session
+    except IntegrityError as error:
+        db.rollback()
+        if not is_live_session_clash(error):
+            raise
+    # The rollback expired `meeting`, so this reloads its sessions from the database.
+    winner = meeting.live_session
+    if winner is None:
+        raise RuntimeError("Another join started a session, but it has already ended")
+    return winner
+
+
+def is_live_session_clash(error: IntegrityError) -> bool:
+    """True when the one-live-session-per-meeting index rejected the INSERT."""
+    return "meeting_sessions.meeting_id" in str(error.orig)
 
 
 def start_session(db: Session, meeting: Meeting) -> MeetingSession:
