@@ -24,7 +24,11 @@ export default function HomePage() {
         </div>
         <div className="flex flex-col gap-6">
           <QuickActions />
-          <UpcomingMeetings resource={upcoming.resource} onRetry={upcoming.reload} />
+          <UpcomingMeetings
+            resource={upcoming.resource}
+            onRetry={upcoming.reload}
+            onChanged={upcoming.reload}
+          />
         </div>
       </div>
     </PortalLayout>

@@ -64,7 +64,7 @@ function RecentMeetingRow({ meeting }: { meeting: RecentMeetingOut }) {
       </span>
       <div className="flex min-w-0 flex-1 flex-wrap justify-between gap-x-6 gap-y-1">
         <div className="min-w-0">
-          <p className="font-semibold break-words">{meeting.title}</p>
+          <p className="font-semibold wrap-break-word">{meeting.title}</p>
           <p className="text-sm text-text-secondary">
             {formatShortDate(start)} · {formatTimeRange(start, end)}
           </p>

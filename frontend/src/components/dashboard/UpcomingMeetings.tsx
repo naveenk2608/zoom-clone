@@ -8,21 +8,22 @@ import type { MeetingOut } from "@/types/api";
 type UpcomingMeetingsProps = {
   resource: Resource<MeetingOut[]>;
   onRetry: () => void;
+  onChanged: () => void; // a meeting was deleted, so the list must reload
 };
 
 /** The right-hand card on Home: the user's live and scheduled meetings, by day. */
-export function UpcomingMeetings({ resource, onRetry }: UpcomingMeetingsProps) {
+export function UpcomingMeetings(props: UpcomingMeetingsProps) {
   return (
     <Card className="p-6">
       <h2 className="text-[22px] font-bold text-zoom-navy">Upcoming meetings</h2>
       <div className="mt-5">
-        <UpcomingList resource={resource} onRetry={onRetry} />
+        <UpcomingList {...props} />
       </div>
     </Card>
   );
 }
 
-function UpcomingList({ resource, onRetry }: UpcomingMeetingsProps) {
+function UpcomingList({ resource, onRetry, onChanged }: UpcomingMeetingsProps) {
   if (resource.status === "loading") {
     return <ListLoading />;
   }
@@ -42,7 +43,7 @@ function UpcomingList({ resource, onRetry }: UpcomingMeetingsProps) {
           <ul className="mt-4 flex flex-col gap-4">
             {group.meetings.map((meeting) => (
               <li key={meeting.meeting_code}>
-                <MeetingCard meeting={meeting} />
+                <MeetingCard meeting={meeting} onDeleted={onChanged} />
               </li>
             ))}
           </ul>

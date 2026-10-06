@@ -7,6 +7,7 @@ import type { MeetingOut } from "@/types/api";
  *   Alex Morgan is inviting you to a scheduled Zoom meeting.
  *
  *   Topic: Design review
+ *   Description: Walk through the new mockups.   (only if it has one)
  *   Time: Oct 8, 2026, 10:00 AM Asia/Kolkata
  *
  *   Join Zoom Meeting
@@ -18,6 +19,9 @@ export function buildInvitation(meeting: MeetingOut): string {
   const kind = meeting.meeting_type === "scheduled" ? "a scheduled Zoom meeting" : "a Zoom meeting";
   const lines = [`${meeting.host.name} is inviting you to ${kind}.`, "", `Topic: ${meeting.title}`];
 
+  if (meeting.description !== null) {
+    lines.push(`Description: ${meeting.description}`);
+  }
   if (meeting.scheduled_start !== null && meeting.timezone !== null) {
     lines.push(`Time: ${formatInZone(meeting.scheduled_start, meeting.timezone)}`);
   }

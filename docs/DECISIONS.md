@@ -38,3 +38,12 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **Live meetings sit under an "In progress" header** at the top of Upcoming. A live instant meeting has no scheduled start, so it can't be grouped by day.
 - **One toast at a time, kept in a context.** The toast survives a page change, so "Meeting scheduled" still shows after Save returns to Home.
 - **Placeholders show "Not available in this demo".** Nav and sidebar items use a tooltip; Profile and Settings in the avatar menu show the same text as a toast, since a menu item closes the menu on click.
+- **The new-meeting Schedule form renders only in the browser** (`next/dynamic` with `ssr: false`). Its defaults come from the browser's clock and time zone, so a server render would differ and React would report a hydration mismatch.
+- **One form for create and edit.** `ScheduleForm` takes an optional meeting; the value conversions (12-hour ↔ 24-hour, duration split, validation) are plain functions in `scheduleFormValues.ts`.
+- **Default duration is 1 hour.** The 40 minutes in the screenshot is Zoom's Basic-plan limit, which is out of scope.
+- **Selects keep unusual saved values.** A meeting made through the API might last 40 minutes; `withValue` adds that option, so Edit shows it and Save doesn't quietly change it.
+- **Current time-zone names.** Chrome reports some zones by old names (`Asia/Calcutta`). A short rename map shows `Asia/Kolkata` instead; Chrome and the server accept both.
+- **The description goes into the Copy Invitation text**, so the field is used as well as saved.
+- **Native date input and selects.** They come with keyboard and screen-reader support, and the date field shows the browser's own calendar picker, like Zoom's.
+- **The meeting card menu is non-modal** (`modal={false}`). A modal menu closing while the delete dialog opens can leave the page unclickable.
+- **Meetings is highlighted in the sidebar on the Schedule pages**, as in Zoom. It links to Home, where the meetings list lives in this demo.
