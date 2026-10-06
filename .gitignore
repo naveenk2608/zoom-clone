@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.venv/
+
+# Build output and caches
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+__pycache__/
+.pytest_cache/
+.vercel/
+
+# SQLite database files (WAL mode adds the -wal and -shm files)
+*.db
+*.db-wal
+*.db-shm
+
+# Env files: real ones stay local, the examples are committed
+.env*
+!.env.example
+
+# Zoom screenshots, reference only
+design-refs/
+
+# OS files
+.DS_Store
