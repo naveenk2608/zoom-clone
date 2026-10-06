@@ -1,1 +1,46 @@
 @import "tailwindcss";
+
+/* Design tokens sampled from the Zoom screenshots in design-refs/.
+   Each --color-* token becomes Tailwind utilities, e.g. bg-zoom-blue, text-zoom-blue. */
+@theme {
+  --color-zoom-blue: #0d6bde;
+  --color-zoom-blue-bright: #0e72ed;
+  --color-zoom-blue-title: #0b5cff;
+  --color-zoom-orange: #f26d21;
+  --color-avatar-orange: #ef6c00;
+  --color-zoom-red: #de2828;
+  --color-zoom-green: #25e55f;
+  --color-zoom-navy: #00031f;
+  --color-text-primary: #222325;
+  --color-text-secondary: #666487;
+  --color-surface-muted: #f7f7fa;
+  --color-surface-active: #f2f8ff;
+  --color-pill-neutral: #f1f4f6;
+  --color-btn-disabled: #efeff4;
+  --color-room-bg: #0d0d0d;
+  --color-room-bar: #070707;
+  --color-room-tile: #1a1a1a;
+  --color-room-panel: #1d1e20;
+  --color-room-panel-raised: #2a2b2d;
+  --color-room-btn-active: #282b2e;
+}
+
+/* "inline" because the value points at a variable that next/font sets on <html>. */
+@theme inline {
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+    sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: white;
+    color: var(--color-text-primary);
+  }
+
+  /* One visible keyboard focus style for every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-zoom-blue);
+    outline-offset: 2px;
+  }
+}

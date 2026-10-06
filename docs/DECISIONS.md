@@ -27,3 +27,14 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **Seeded times fall in office hours in India** (10:00–18:00, Asia/Kolkata), relative to today, plus one meeting later today while office time remains. `seed_if_empty` takes an optional `now`, so tests can fix the clock.
 - **The seed is split into three files:** `seed.py` (what), `seed_time.py` (when) and `seed_rows.py` (how rows are built), to keep files short.
 - **Simultaneous first joins:** if two people join a not-yet-started meeting at the same instant, both try to start a session. The one-live-session index rejects the second INSERT, and that request rolls back and joins the session that won (`live_or_new_session`), so nobody sees an error.
+
+## Phase 3: dashboard
+
+- **Inter font** through `next/font/google`. It is the closest free match to Zoom's font and a variable font, so every weight is available. The system UI stack is the fallback.
+- **A text wordmark instead of Zoom's logo.** "zoom" in Zoom's blue looks right without shipping Zoom's logo file.
+- **Sizes come from the screenshots divided by 1.25.** The references were taken at 125% display scaling, so 1920 screenshot pixels are 1536 CSS pixels.
+- **`useResource(load)`** is the one data-loading pattern. It sets state only in promise callbacks (the React lint rules forbid synchronous setState in effects), ignores results from a discarded run, and keeps old data on screen while `reload()` refreshes it.
+- **`CurrentUserProvider`** in the root layout loads `/me` once. The nav avatar, the profile card and later the pre-join page all read it, instead of each fetching it.
+- **Live meetings sit under an "In progress" header** at the top of Upcoming. A live instant meeting has no scheduled start, so it can't be grouped by day.
+- **One toast at a time, kept in a context.** The toast survives a page change, so "Meeting scheduled" still shows after Save returns to Home.
+- **Placeholders show "Not available in this demo".** Nav and sidebar items use a tooltip; Profile and Settings in the avatar menu show the same text as a toast, since a menu item closes the menu on click.

@@ -1,5 +1,77 @@
-// Mirrors the backend's Pydantic response models in backend/app/schemas.
+// Mirrors the backend's Pydantic models in backend/app/schemas.
+// Datetimes arrive as ISO 8601 strings with an offset; dates as "YYYY-MM-DD".
 
-export interface HealthOut {
-  status: "ok";
+export interface UserOut {
+  id: number;
+  name: string;
+  email: string;
+  avatar_color: string;
+}
+
+export type MeetingType = "instant" | "scheduled";
+
+export type MeetingStatus = "scheduled" | "live" | "ended" | "cancelled";
+
+export interface HostOut {
+  name: string;
+  avatar_color: string;
+}
+
+export interface MeetingOut {
+  meeting_code: string;
+  title: string;
+  description: string | null;
+  meeting_type: MeetingType;
+  status: MeetingStatus;
+  scheduled_start: string | null; // UTC
+  start_date: string | null; // wall-clock date in the meeting's own time zone
+  start_time: string | null; // wall-clock "HH:MM" in the meeting's own time zone
+  duration_minutes: number | null;
+  timezone: string | null;
+  mute_on_entry: boolean;
+  host_video_on: boolean;
+  participant_video_on: boolean;
+  invite_link: string;
+  host: HostOut;
+  created_at: string;
+}
+
+export interface RecentMeetingOut {
+  session_id: number;
+  meeting_code: string;
+  title: string;
+  started_at: string;
+  ended_at: string;
+  duration_minutes: number; // how long it actually ran, rounded
+  participant_count: number;
+}
+
+export interface InstantIn {
+  title?: string;
+}
+
+export interface ScheduleIn {
+  title: string;
+  description: string | null;
+  start_date: string; // "YYYY-MM-DD"
+  start_time: string; // 24-hour "HH:MM"
+  timezone: string; // IANA name, e.g. "Asia/Kolkata"
+  duration_minutes: number;
+  mute_on_entry: boolean;
+  host_video_on: boolean;
+  participant_video_on: boolean;
+}
+
+export type ParticipantRole = "host" | "attendee";
+
+export interface ParticipantOut {
+  id: number;
+  display_name: string;
+  role: ParticipantRole;
+}
+
+export interface JoinOut {
+  meeting: MeetingOut;
+  participant: ParticipantOut;
+  join_token: string; // sent with the WebSocket connection to prove who this is
 }

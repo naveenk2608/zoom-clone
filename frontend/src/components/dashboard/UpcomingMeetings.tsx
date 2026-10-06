@@ -1,0 +1,53 @@
+import { ListError, ListLoading } from "@/components/dashboard/ListStatus";
+import { MeetingCard } from "@/components/dashboard/MeetingCard";
+import { Card } from "@/components/ui/Card";
+import type { Resource } from "@/hooks/useResource";
+import { groupUpcoming } from "@/lib/datetime";
+import type { MeetingOut } from "@/types/api";
+
+type UpcomingMeetingsProps = {
+  resource: Resource<MeetingOut[]>;
+  onRetry: () => void;
+};
+
+/** The right-hand card on Home: the user's live and scheduled meetings, by day. */
+export function UpcomingMeetings({ resource, onRetry }: UpcomingMeetingsProps) {
+  return (
+    <Card className="p-6">
+      <h2 className="text-[22px] font-bold text-zoom-navy">Upcoming meetings</h2>
+      <div className="mt-5">
+        <UpcomingList resource={resource} onRetry={onRetry} />
+      </div>
+    </Card>
+  );
+}
+
+function UpcomingList({ resource, onRetry }: UpcomingMeetingsProps) {
+  if (resource.status === "loading") {
+    return <ListLoading />;
+  }
+  if (resource.status === "error") {
+    return <ListError message={resource.message} onRetry={onRetry} />;
+  }
+  if (resource.data.length === 0) {
+    return <p className="py-8 text-center text-text-secondary">No upcoming meetings</p>;
+  }
+
+  const groups = groupUpcoming(resource.data, new Date());
+  return (
+    <div className="flex flex-col gap-6">
+      {groups.map((group) => (
+        <section key={group.label}>
+          <h3 className="rounded-lg bg-surface-muted px-2.5 py-1.5 text-xl">{group.label}</h3>
+          <ul className="mt-4 flex flex-col gap-4">
+            {group.meetings.map((meeting) => (
+              <li key={meeting.meeting_code}>
+                <MeetingCard meeting={meeting} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
