@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.models import Meeting, MeetingSession, Participant, User
 from app.models.participant import ParticipantRole
-from app.services.errors import Gone, NotAllowed
+from app.services.errors import Conflict, Gone, NotAllowed
 from app.services.meeting_codes import add_with_unique_code
 from app.utils.time import utc_now
+
+ALREADY_HOSTED = "This meeting is already being hosted on another device."
 
 
 def create_instant_meeting(db: Session, host: User, title: str | None) -> Participant:
@@ -27,13 +29,28 @@ def create_instant_meeting(db: Session, host: User, title: str | None) -> Partic
 
 
 def start_meeting(db: Session, user: User, meeting: Meeting) -> Participant:
-    """The host starts the meeting, or rejoins it if it is already live."""
+    """The host starts the meeting, or rejoins it if it is already live.
+
+    A live session has at most one host in it. A host who refreshes the page
+    reconnects with their join token and never comes back here.
+    """
     if meeting.host_id != user.id:
         raise NotAllowed("Only the host can start this meeting.")
     check_can_join(meeting)
+    live = meeting.live_session
+    if live is not None and has_host_in_meeting(live):
+        raise Conflict(ALREADY_HOSTED)
     session = live_or_new_session(db, meeting)
     participant = add_participant(db, session, user=user, display_name=user.name, role="host")
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as error:
+        # Another Start won the race between our check and our INSERT, and the
+        # one-host index rejected ours.
+        db.rollback()
+        if not is_host_clash(error):
+            raise
+        raise Conflict(ALREADY_HOSTED) from None
     return participant
 
 
@@ -87,6 +104,17 @@ def live_or_new_session(db: Session, meeting: Meeting) -> MeetingSession:
 def is_live_session_clash(error: IntegrityError) -> bool:
     """True when the one-live-session-per-meeting index rejected the INSERT."""
     return "meeting_sessions.meeting_id" in str(error.orig)
+
+
+def has_host_in_meeting(session: MeetingSession) -> bool:
+    return any(
+        person.role == "host" and person.status == "in_meeting" for person in session.participants
+    )
+
+
+def is_host_clash(error: IntegrityError) -> bool:
+    """True when the one-host-per-session index rejected the INSERT."""
+    return "participants.session_id" in str(error.orig)
 
 
 def start_session(db: Session, meeting: Meeting) -> MeetingSession:

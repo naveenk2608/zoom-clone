@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Text
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -31,6 +31,13 @@ class Participant(Base):
         ),
         Index("ix_participants_session_status", "session_id", "status"),
         Index("ix_participants_user", "user_id"),
+        # At most one host in the meeting per session, so two devices can't both host.
+        Index(
+            "ux_participants_one_host_present",
+            "session_id",
+            unique=True,
+            sqlite_where=text("role = 'host' AND status = 'in_meeting'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

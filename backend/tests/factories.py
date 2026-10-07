@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models import Meeting, MeetingSession, Participant, User
+from app.models.participant import ParticipantRole
 from app.services.meeting_codes import generate_meeting_code
 
 
@@ -55,12 +56,14 @@ def add_session(
     return session
 
 
-def new_participant(session: MeetingSession, name: str, user: User | None) -> Participant:
+def new_participant(
+    session: MeetingSession, name: str, user: User | None, role: ParticipantRole = "attendee"
+) -> Participant:
     return Participant(
         session=session,
         user_id=user.id if user is not None else None,
         display_name=name,
-        role="attendee",
+        role=role,
         status="in_meeting" if session.ended_at is None else "left",
         join_token=secrets.token_urlsafe(24),
         joined_at=session.started_at,

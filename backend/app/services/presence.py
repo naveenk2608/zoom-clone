@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import MeetingSession, Participant
 from app.models.participant import ParticipantRole
 from app.services.errors import Gone, NotAllowed, Unauthorized
-from app.services.lifecycle import end_session
+from app.services.lifecycle import ALREADY_HOSTED, end_session, has_host_in_meeting
 from app.utils.time import utc_now
 
 MEETING_ENDED_MESSAGE = "This meeting has been ended by host."
@@ -33,7 +33,9 @@ def admit(db: Session, code: str, token: str) -> RoomMember:
     """Checks a join token for a meeting and marks its owner as in the meeting.
 
     Reconnecting with the same token (after a refresh) puts a participant who
-    had left back in the meeting.
+    had left back in the meeting, unless they were the host and someone started
+    the meeting on another device while they were away. That token is then
+    refused, and the app sends them to the pre-join page to join as a participant.
     """
     participant = db.scalar(select(Participant).where(Participant.join_token == token))
     if participant is None or participant.session.meeting.meeting_code != code:
@@ -42,6 +44,9 @@ def admit(db: Session, code: str, token: str) -> RoomMember:
         raise NotAllowed(REMOVED_MESSAGE)
     if participant.session.ended_at is not None:
         raise Gone(MEETING_ENDED_MESSAGE)
+    if participant.status == "left" and participant.role == "host":
+        if has_host_in_meeting(participant.session):
+            raise Unauthorized(ALREADY_HOSTED)
     if participant.status == "left":
         participant.status = "in_meeting"
         participant.left_at = None

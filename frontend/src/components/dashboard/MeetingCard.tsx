@@ -2,6 +2,7 @@
 
 import { Copy } from "lucide-react";
 
+import { HostedElsewhereDialog } from "@/components/dashboard/HostedElsewhereDialog";
 import { MeetingCardMenu } from "@/components/dashboard/MeetingCardMenu";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -19,7 +20,8 @@ type MeetingCardProps = {
 /** One meeting in the Upcoming list. */
 export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
   const showToast = useToast();
-  const { pending, startScheduledMeeting } = useStartMeeting();
+  const { pending, hostedElsewhere, closeHostedElsewhere, startScheduledMeeting } =
+    useStartMeeting();
   const isLive = meeting.status === "live";
 
   async function copyInvitation() {
@@ -64,6 +66,11 @@ export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
           </div>
         )}
       </div>
+      <HostedElsewhereDialog
+        code={meeting.meeting_code}
+        message={hostedElsewhere}
+        onClose={closeHostedElsewhere}
+      />
     </article>
   );
 }
