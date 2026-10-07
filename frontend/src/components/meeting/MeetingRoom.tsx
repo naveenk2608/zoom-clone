@@ -6,8 +6,11 @@ import { ChatPanel } from "@/components/meeting/ChatPanel";
 import { MeetingStatusScreen } from "@/components/meeting/MeetingStatusScreen";
 import { ParticipantsPanel } from "@/components/meeting/ParticipantsPanel";
 import { RoomHeader } from "@/components/meeting/RoomHeader";
+import { SpeakerView } from "@/components/meeting/SpeakerView";
 import { Toolbar } from "@/components/meeting/Toolbar";
 import { VideoGrid } from "@/components/meeting/VideoGrid";
+import type { RoomView } from "@/components/meeting/ViewMenu";
+import { useActiveSpeaker } from "@/hooks/useActiveSpeaker";
 import { useCopyText } from "@/hooks/useCopyText";
 import { useMeetingRoom } from "@/hooks/useMeetingRoom";
 import type { JoinSession } from "@/lib/joinSession";
@@ -33,6 +36,9 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
   // The browser refused to play sound before any click on the page (after a refresh, say).
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [playToken, setPlayToken] = useState(0);
+  const [view, setView] = useState<RoomView>("speaker"); // Zoom's default
+  const { speakerId, speaking } = useActiveSpeaker(room.people);
+  const speakingId = speaking ? speakerId : null;
 
   function enableAudio() {
     // This click counts as the user gesture the browser wanted; the tiles try again.
@@ -46,6 +52,7 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
   }
 
   const isHost = room.me.role === "host";
+  const playback = { playToken, onAutoplayBlocked: () => setAudioBlocked(true) };
 
   switch (room.status) {
     case "ended":
@@ -67,7 +74,7 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
   return (
     <div className="flex h-screen bg-room-bg text-white">
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <RoomHeader meeting={meeting} isHost={isHost} />
+        <RoomHeader meeting={meeting} isHost={isHost} view={view} onViewChange={setView} />
         {audioBlocked && (
           <button
             type="button"
@@ -77,10 +84,16 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
             Click to enable audio
           </button>
         )}
-        <VideoGrid
-          people={room.people}
-          playback={{ playToken, onAutoplayBlocked: () => setAudioBlocked(true) }}
-        />
+        {view === "speaker" ? (
+          <SpeakerView
+            people={room.people}
+            playback={playback}
+            speakerId={speakerId}
+            speakingId={speakingId}
+          />
+        ) : (
+          <VideoGrid people={room.people} playback={playback} speakingId={speakingId} />
+        )}
         <Toolbar
           me={room.me}
           participantCount={room.people.length}

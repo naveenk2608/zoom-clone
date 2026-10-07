@@ -11,7 +11,13 @@ function columnClasses(count: number): string {
   return "grid-cols-1 md:grid-cols-3";
 }
 
-export function VideoGrid({ people, playback }: { people: RoomPerson[]; playback: TilePlayback }) {
+type VideoGridProps = {
+  people: RoomPerson[];
+  playback: TilePlayback;
+  speakingId: number | null; // who gets the green border
+};
+
+export function VideoGrid({ people, playback, speakingId }: VideoGridProps) {
   return (
     // Rows share the height, but never get shorter than 8rem: on a phone a
     // crowded one-column grid scrolls instead of squeezing tiles into strips.
@@ -19,7 +25,12 @@ export function VideoGrid({ people, playback }: { people: RoomPerson[]; playback
       className={`grid min-h-0 flex-1 auto-rows-[minmax(8rem,1fr)] gap-2 overflow-y-auto p-2 ${columnClasses(people.length)}`}
     >
       {people.map((person) => (
-        <VideoTile key={person.id} person={person} playback={playback} />
+        <VideoTile
+          key={person.id}
+          person={person}
+          playback={playback}
+          speaking={person.id === speakingId}
+        />
       ))}
     </div>
   );
