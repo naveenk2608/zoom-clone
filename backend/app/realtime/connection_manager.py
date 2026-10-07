@@ -104,6 +104,14 @@ class ConnectionManager:
         except RuntimeError:
             pass  # already closed
 
+    async def close_all(self, connections: list[Connection], code: int) -> None:
+        """Closes several sockets at the same time.
+
+        A close waits for the browser to answer, which can be slow behind a
+        hosting proxy. Done together, one slow browser doesn't hold up the rest.
+        """
+        await asyncio.gather(*(self.close(connection, code) for connection in connections))
+
     def start_grace(self, session_id: int, task: asyncio.Task[None]) -> None:
         self._grace_tasks[session_id] = task  # keeps a reference so the task isn't collected
 

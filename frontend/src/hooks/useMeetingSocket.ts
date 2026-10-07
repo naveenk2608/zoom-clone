@@ -45,8 +45,9 @@ export function useMeetingSocket({ code, token, audio, video, onMessage }: Socke
       `${WS_URL}/ws/meetings/${code}?token=${encodeURIComponent(token)}&${flags}`,
     );
     socketRef.current = socket;
-    // Set on cleanup. React StrictMode runs this effect twice in dev, and the
-    // first socket's events must not change the state of the second.
+    // Set when we close this socket ourselves: on cleanup (React StrictMode runs
+    // this effect twice in dev, and the first socket's events must not change
+    // the state of the second), and once the meeting is over for us.
     let closedByUs = false;
 
     socket.onmessage = (event: MessageEvent<string>) => {
@@ -56,6 +57,16 @@ export function useMeetingSocket({ code, token, audio, video, onMessage }: Socke
       if (message.type === "error") showToast(message.message);
       setOthers((current) => applyMessage(current, message));
       deliver(message);
+
+      // The message alone ends our part in the meeting. The server's close
+      // (4010 or 4003) follows, but behind a hosting proxy it can arrive late
+      // or not at all, so it is only a fallback.
+      const final = statusForMessage(message);
+      if (final !== null) {
+        closedByUs = true; // a late close event must not turn this into "lost"
+        setStatus(final);
+        socket.close();
+      }
     };
 
     socket.onclose = (event) => {
@@ -79,6 +90,18 @@ export function useMeetingSocket({ code, token, audio, video, onMessage }: Socke
   }, []);
 
   return { status, others, send };
+}
+
+/** The final status a message puts us in, or null for messages that don't end our meeting. */
+function statusForMessage(message: ServerMessage): SocketStatus | null {
+  switch (message.type) {
+    case "meeting_ended":
+      return "ended";
+    case "removed":
+      return "removed";
+    default:
+      return null;
+  }
 }
 
 /** What a close code means for the room, or null when the room needs no change. */

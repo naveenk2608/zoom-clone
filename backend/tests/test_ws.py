@@ -1,5 +1,7 @@
 """The meeting WebSocket: admission, presence, media flags, leaving and ending."""
 
+import asyncio
+import time
 from typing import Any
 
 import pytest
@@ -155,6 +157,47 @@ def test_an_unknown_message_gets_an_error(live_client: TestClient) -> None:
         socket.send_json({"type": "dance"})
 
         assert socket.receive_json()["type"] == "error"
+
+
+SLOW_CLOSE_SECONDS = 1.5
+
+
+def test_one_slow_close_does_not_hold_up_ending_the_meeting_for_the_others(
+    live_client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    host = start_meeting(live_client)
+    slow = add_guest(live_client, host.code, "Sam")
+    other = add_guest(live_client, host.code, "Kim")
+
+    with (
+        connect(live_client, host) as host_socket,
+        connect(live_client, slow) as slow_socket,
+        connect(live_client, other) as other_socket,
+    ):
+        for _ in range(3):
+            host_socket.receive_json()  # welcome, then Sam and Kim joining
+        for _ in range(2):
+            slow_socket.receive_json()  # welcome, then Kim joining
+        other_socket.receive_json()  # welcome
+
+        # Sam's browser takes a long time to answer the close. Sam joined before
+        # Kim, so closing one socket after another would make Kim wait for it.
+        slow_connection = actions.manager.find(only_session(db).id, slow.participant_id)
+        assert slow_connection is not None
+
+        async def slow_close(code: int = 1000, reason: str | None = None) -> None:
+            await asyncio.sleep(SLOW_CLOSE_SECONDS)
+
+        monkeypatch.setattr(slow_connection.websocket, "close", slow_close)
+
+        started = time.monotonic()
+        host_socket.send_json({"type": "host_end"})
+
+        assert other_socket.receive_json() == {"type": "meeting_ended"}
+        assert close_code(other_socket) == CLOSE_ENDED
+        assert time.monotonic() - started < SLOW_CLOSE_SECONDS
+        assert not actions.manager.lock(host.code).locked()  # Sam's close isn't holding it
+        assert slow_socket.receive_json() == {"type": "meeting_ended"}
 
 
 def test_the_host_ending_the_meeting_ends_it_for_everyone(

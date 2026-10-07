@@ -59,10 +59,14 @@ async def remove(factory: actions.SessionFactory, host: Connection, participant_
             return
         await run_in_threadpool(mark_removed, factory, target.participant_id)
         actions.manager.remove(target)
-        await actions.manager.send(target, Removed())
-        await actions.manager.close(target, CLOSE_REMOVED)
         left = ParticipantLeft(participant_id=target.participant_id)
         await actions.manager.broadcast(actions.manager.others(target), left)
+
+    # Out of the room now, so nothing else reaches this socket. Its close can be
+    # slow, so it happens after the lock is released. The `removed` message is
+    # what the browser acts on; the close is a fallback.
+    await actions.manager.send(target, Removed())
+    await actions.manager.close(target, CLOSE_REMOVED)
 
 
 async def end_for_all(factory: actions.SessionFactory, host: Connection) -> None:
@@ -71,6 +75,9 @@ async def end_for_all(factory: actions.SessionFactory, host: Connection) -> None
         await run_in_threadpool(actions.end_session, factory, host.session_id)
         actions.manager.cancel_grace(host.session_id)
         everyone = actions.manager.take_all(host.session_id)
-        await actions.manager.broadcast(everyone, MeetingEnded())
-        for connection in everyone:
-            await actions.manager.close(connection, CLOSE_ENDED)
+
+    # Taken out of the room, so the lock isn't needed to reach them. Everyone
+    # hears first, then all the sockets close at once: a slow close can't hold
+    # up the others or keep the meeting locked.
+    await actions.manager.broadcast(everyone, MeetingEnded())
+    await actions.manager.close_all(everyone, CLOSE_ENDED)
