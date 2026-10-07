@@ -1,9 +1,14 @@
 "use client";
 
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Check, LayoutGrid } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 
-import { RoomMenu, RoomMenuContent, RoomMenuTrigger } from "@/components/meeting/RoomMenu";
+import {
+  RoomMenu,
+  RoomMenuContent,
+  RoomMenuRadioGroup,
+  RoomMenuRadioItem,
+  RoomMenuTrigger,
+} from "@/components/meeting/RoomMenu";
 
 export type RoomView = "speaker" | "gallery";
 
@@ -32,23 +37,11 @@ export function ViewMenu({ view, onChange }: ViewMenuProps) {
         </button>
       </RoomMenuTrigger>
       <RoomMenuContent>
-        <DropdownMenu.RadioGroup value={view} onValueChange={choose}>
+        <RoomMenuRadioGroup value={view} onValueChange={choose}>
           {VIEWS.map((option) => (
-            <DropdownMenu.RadioItem
-              key={option.value}
-              value={option.value}
-              // Same look as RoomMenuItem; the highlighted background is the focus indicator.
-              className="flex cursor-pointer items-center gap-2 py-2 pr-4 pl-3 text-sm outline-none data-highlighted:bg-white/10"
-            >
-              <span className="flex w-4 justify-center">
-                <DropdownMenu.ItemIndicator>
-                  <Check size={16} aria-hidden="true" />
-                </DropdownMenu.ItemIndicator>
-              </span>
-              {option.label}
-            </DropdownMenu.RadioItem>
+            <RoomMenuRadioItem key={option.value} value={option.value} label={option.label} />
           ))}
-        </DropdownMenu.RadioGroup>
+        </RoomMenuRadioGroup>
       </RoomMenuContent>
     </RoomMenu>
   );

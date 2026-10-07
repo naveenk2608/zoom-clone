@@ -53,7 +53,11 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
   }
 
   const isHost = room.me.role === "host";
-  const playback = { playToken, onAutoplayBlocked: () => setAudioBlocked(true) };
+  const playback = {
+    playToken,
+    onAutoplayBlocked: () => setAudioBlocked(true),
+    sinkId: room.speakerId,
+  };
 
   switch (room.status) {
     case "ended":
@@ -97,6 +101,7 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
         )}
         <Toolbar
           me={room.me}
+          devices={room.devices}
           participantCount={room.people.length}
           participantsOpen={participantsOpen}
           chatOpen={chatOpen}

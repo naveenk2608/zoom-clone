@@ -10,9 +10,13 @@ type TileVideoProps = {
   visible: boolean; // false while the camera is off; it keeps playing so their audio is heard
   playToken: number; // changes when the user clicks "Click to enable audio", to try again
   onAutoplayBlocked: () => void;
+  sinkId: string | null; // the speaker to play on; null leaves the browser's default
 };
 
-/** The <video> of a tile. Plays the stream, and reports when the browser blocks autoplay. */
+/**
+ * The <video> of a tile. Plays the stream on the chosen speaker, and reports
+ * when the browser blocks autoplay.
+ */
 export function TileVideo({
   stream,
   isMe,
@@ -21,6 +25,7 @@ export function TileVideo({
   visible,
   playToken,
   onAutoplayBlocked,
+  sinkId,
 }: TileVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const reportBlocked = useEffectEvent(onAutoplayBlocked);
@@ -35,6 +40,17 @@ export function TileVideo({
       if (error instanceof DOMException && error.name === "NotAllowedError") reportBlocked();
     });
   }, [stream, playToken]);
+
+  // Each remote tile plays that person's sound, so each one is pointed at the
+  // chosen speaker. Our own tile is muted, so it is left alone. The menu only
+  // offers speakers where setSinkId exists.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null || isMe || sinkId === null) return;
+    video.setSinkId(sinkId).catch(() => {
+      // The speaker was unplugged meanwhile; the sound stays where it was.
+    });
+  }, [sinkId, isMe]);
 
   return (
     <video

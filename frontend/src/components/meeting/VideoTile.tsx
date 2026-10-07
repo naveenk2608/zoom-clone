@@ -8,6 +8,7 @@ import type { RoomPerson } from "@/hooks/useMeetingRoom";
 export type TilePlayback = {
   playToken: number;
   onAutoplayBlocked: () => void;
+  sinkId: string | null; // the speaker picked in the Mute ^ menu; null is the default
 };
 
 /**
@@ -53,6 +54,7 @@ export function VideoTile({ person, playback, variant, speaking = false }: Video
           visible={showsVideo}
           playToken={playback.playToken}
           onAutoplayBlocked={playback.onAutoplayBlocked}
+          sinkId={playback.sinkId}
         />
       )}
       {!showsVideo && <CameraOffLook person={person} compact={compact} />}

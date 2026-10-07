@@ -12,17 +12,20 @@ import {
   VideoOff,
 } from "lucide-react";
 
+import { AudioMenuItems, VideoMenuItems } from "@/components/meeting/DeviceMenus";
 import { EndMeetingMenu } from "@/components/meeting/EndMeetingMenu";
 import { MoreMenu } from "@/components/meeting/MoreMenu";
 import { RoomMenuItem } from "@/components/meeting/RoomMenu";
 import { ToolbarButton } from "@/components/meeting/ToolbarButton";
 import { ToolbarMenuButton } from "@/components/meeting/ToolbarMenuButton";
+import type { RoomDevices } from "@/hooks/useMediaDevices";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
 
 const RED_ICON = "text-zoom-red";
 
 type ToolbarProps = {
   me: RoomPerson;
+  devices: RoomDevices; // for the ^ menus next to Mute and Video
   participantCount: number;
   participantsOpen: boolean;
   chatOpen: boolean;
@@ -74,7 +77,7 @@ export function Toolbar(props: ToolbarProps) {
           label={me.audio ? "Mute" : "Unmute"}
           iconClassName={me.audio ? undefined : RED_ICON}
           onClick={props.onToggleAudio}
-          caret
+          menu={{ label: "Audio settings", items: <AudioMenuItems devices={props.devices} /> }}
         />
         <ToolbarButton
           icon={me.video ? Video : VideoOff}
@@ -82,7 +85,7 @@ export function Toolbar(props: ToolbarProps) {
           ariaLabel={me.video ? "Stop video" : "Start video"}
           iconClassName={me.video ? undefined : RED_ICON}
           onClick={props.onToggleVideo}
-          caret
+          menu={{ label: "Video settings", items: <VideoMenuItems devices={props.devices} /> }}
         />
       </div>
       <div className="flex">

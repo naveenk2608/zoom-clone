@@ -1,6 +1,8 @@
 import clsx from "clsx";
 import { ChevronUp, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
+import { RoomMenu, RoomMenuContent, RoomMenuTrigger } from "@/components/meeting/RoomMenu";
 import { NotAvailable } from "@/components/ui/Tooltip";
 
 /**
@@ -64,20 +66,31 @@ export function ToolbarButtonFace({
   );
 }
 
+/** What the ^ next to a toolbar button opens. */
+export type CaretMenu = {
+  label: string; // the ^ button's name for screen readers, such as "Audio settings"
+  items: ReactNode;
+};
+
 type ToolbarButtonProps = ToolbarButtonFaceProps & {
   onClick?: () => void; // without it the button is a placeholder
   ariaLabel?: string; // when the icon's meaning differs from the visible label
   active?: boolean; // its panel is open
-  caret?: boolean; // Zoom's ^ menu next to the icon; a placeholder here
+  caret?: boolean; // Zoom's ^ next to the icon; a placeholder unless `menu` is given
+  menu?: CaretMenu;
   show?: ToolbarShow;
 };
 
-/** One button of the room toolbar: an icon with a label under it. */
+// The ^ is only shown on a wide toolbar; a narrow one has no room for it.
+const CARET_CLASSES = "-ml-1 hidden rounded p-1 text-white/80 hover:bg-white/10 @3xl:block";
+
+/** One button of the room toolbar: an icon with a label under it, and maybe a ^ menu beside it. */
 export function ToolbarButton({
   onClick,
   ariaLabel,
   active,
   caret,
+  menu,
   show = "always",
   ...face
 }: ToolbarButtonProps) {
@@ -96,16 +109,29 @@ export function ToolbarButton({
   return (
     <div className={clsx("items-center", SHOW_CLASSES[show])}>
       {onClick === undefined ? <NotAvailable>{button}</NotAvailable> : button}
-      {caret && (
-        <NotAvailable>
-          <button
-            type="button"
-            aria-label={`${face.label} options`}
-            className="-ml-1 hidden rounded p-1 text-white/80 hover:bg-white/10 @3xl:block"
-          >
-            <ChevronUp size={14} aria-hidden="true" />
-          </button>
-        </NotAvailable>
+      {menu !== undefined ? (
+        <RoomMenu>
+          <RoomMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={menu.label}
+              className={clsx(CARET_CLASSES, "data-[state=open]:bg-white/10")}
+            >
+              <ChevronUp size={14} aria-hidden="true" />
+            </button>
+          </RoomMenuTrigger>
+          <RoomMenuContent side="top" align="start">
+            {menu.items}
+          </RoomMenuContent>
+        </RoomMenu>
+      ) : (
+        caret && (
+          <NotAvailable>
+            <button type="button" aria-label={`${face.label} options`} className={CARET_CLASSES}>
+              <ChevronUp size={14} aria-hidden="true" />
+            </button>
+          </NotAvailable>
+        )
       )}
     </div>
   );

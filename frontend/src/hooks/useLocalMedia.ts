@@ -14,8 +14,9 @@ type MediaEntry = { audio: boolean; video: boolean };
 /**
  * Our own mic and camera in the room.
  *
- * The mic opens once and mute only disables its track, so unmuting is instant.
- * The camera is really stopped when turned off, so its light goes out.
+ * The mic opens once (again only when another mic is picked) and mute only
+ * disables its track, so unmuting is instant. The camera is really stopped
+ * when turned off, so its light goes out.
  * A device that fails never blocks the meeting: it stays off, with a notice.
  */
 export function useLocalMedia(entry: MediaEntry) {
@@ -25,21 +26,25 @@ export function useLocalMedia(entry: MediaEntry) {
   const [audioTrack, setAudioTrack] = useState<MediaStreamTrack | null>(null);
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
+  // The devices picked in the ^ menus. Null means the browser's default.
+  const [pickedMicrophoneId, setPickedMicrophoneId] = useState<string | null>(null);
+  const [pickedCameraId, setPickedCameraId] = useState<string | null>(null);
 
-  // The mic, opened once for the whole meeting.
+  // The mic, opened for the whole meeting, or until another one is picked.
   useEffect(() => {
     // Set on cleanup: a device that opens after that is closed again at once,
     // which also covers React StrictMode running this effect twice in dev.
     let ignore = false;
     let opened: MediaStream | null = null;
 
-    openMicrophone()
+    openMicrophone(pickedMicrophoneId)
       .then((media) => {
         if (ignore) {
           stopStream(media);
           return;
         }
         opened = media;
+        setMicError(null);
         setAudioTrack(media.getAudioTracks()[0] ?? null);
       })
       .catch((caught: unknown) => {
@@ -52,22 +57,23 @@ export function useLocalMedia(entry: MediaEntry) {
 
     return () => {
       ignore = true;
-      if (opened !== null) stopStream(opened);
+      if (opened !== null) stopStream(opened); // another mic was picked, or we left
     };
-  }, [showToast]);
+  }, [pickedMicrophoneId, showToast]);
 
-  // Mute and unmute: the track keeps running, it just sends silence.
+  // Mute and unmute: the track keeps running, it just sends silence. Also
+  // runs for a newly picked mic, so it starts as muted as the old one was.
   useEffect(() => {
     if (audioTrack !== null) setTrackEnabled(audioTrack, audioOn);
   }, [audioTrack, audioOn]);
 
-  // The camera, opened each time it is turned on.
+  // The camera, opened each time it is turned on or another one is picked.
   useEffect(() => {
     if (!videoOn) return;
     let ignore = false;
     let opened: MediaStream | null = null;
 
-    openCamera()
+    openCamera(pickedCameraId)
       .then((media) => {
         if (ignore) {
           stopStream(media);
@@ -84,9 +90,9 @@ export function useLocalMedia(entry: MediaEntry) {
 
     return () => {
       ignore = true;
-      if (opened !== null) stopStream(opened); // Stop Video, or leaving the room
+      if (opened !== null) stopStream(opened); // Stop Video, another camera, or leaving the room
     };
-  }, [videoOn, showToast]);
+  }, [videoOn, pickedCameraId, showToast]);
 
   function toggleAudio() {
     if (audioTrack === null) {
@@ -106,6 +112,20 @@ export function useLocalMedia(entry: MediaEntry) {
     setVideoOn((on) => !on);
   }
 
+  /** Switches to another mic. Muted stays muted: see the mute effect above. */
+  function chooseMicrophone(deviceId: string) {
+    if (deviceId === pickedMicrophoneId) return;
+    setAudioTrack(null); // the mic effect's cleanup stops the old one
+    setPickedMicrophoneId(deviceId);
+  }
+
+  /** Switches to another camera. With the camera off, it is used the next time it starts. */
+  function chooseCamera(deviceId: string) {
+    if (deviceId === pickedCameraId) return;
+    setVideoTrack(null);
+    setPickedCameraId(deviceId);
+  }
+
   /** Releases both devices, when we are sent out of the meeting. */
   const stop = useCallback(() => {
     audioTrack?.stop();
@@ -118,5 +138,20 @@ export function useLocalMedia(entry: MediaEntry) {
     [videoTrack],
   );
 
-  return { audioOn, videoOn, audioTrack, videoTrack, preview, toggleAudio, toggleVideo, mute, stop };
+  return {
+    audioOn,
+    videoOn,
+    audioTrack,
+    videoTrack,
+    preview,
+    // The devices to tick in the menus: the one picked, else the one the open track uses.
+    microphoneId: pickedMicrophoneId ?? audioTrack?.getSettings().deviceId ?? null,
+    cameraId: pickedCameraId ?? videoTrack?.getSettings().deviceId ?? null,
+    toggleAudio,
+    toggleVideo,
+    mute,
+    chooseMicrophone,
+    chooseCamera,
+    stop,
+  };
 }

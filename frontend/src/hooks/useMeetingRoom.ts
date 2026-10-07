@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { useChat } from "@/hooks/useChat";
 import { useLocalMedia } from "@/hooks/useLocalMedia";
+import { useMediaDevices, type RoomDevices } from "@/hooks/useMediaDevices";
 import { useMeetingSocket } from "@/hooks/useMeetingSocket";
 import { usePeerConnections } from "@/hooks/usePeerConnections";
 import { useScreenShare } from "@/hooks/useScreenShare";
@@ -25,7 +26,8 @@ export interface RoomPerson {
 
 /**
  * Everything the room screen needs: who is here, the media, our own mic,
- * camera and screen share, the chat, host controls, and Leave / End.
+ * camera and screen share, the devices to pick from, the chat, host
+ * controls, and Leave / End.
  */
 export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RTCConfiguration) {
   const router = useRouter();
@@ -35,6 +37,18 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
   const [entry] = useState({ audio: session.audio_on, video: session.video_on });
   const media = useLocalMedia(entry);
   const share = useScreenShare();
+  const deviceLists = useMediaDevices(media.audioTrack, media.videoTrack);
+  // The speaker the others' sound plays on. Null is the browser's default.
+  const [speakerId, setSpeakerId] = useState<string | null>(null);
+  const devices: RoomDevices = {
+    microphone: {
+      devices: deviceLists.microphones,
+      selectedId: media.microphoneId,
+      choose: media.chooseMicrophone,
+    },
+    speaker: { devices: deviceLists.speakers, selectedId: speakerId, choose: setSpeakerId },
+    camera: { devices: deviceLists.cameras, selectedId: media.cameraId, choose: media.chooseCamera },
+  };
 
   // Socket messages also go to the peer connections and the chat, which are
   // set up just below because they need the socket's `send`. This runs only
@@ -119,6 +133,8 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     me,
     toggleAudio: media.toggleAudio,
     toggleVideo: media.toggleVideo,
+    devices,
+    speakerId,
     sharing: share.sharing,
     toggleShare: share.toggleShare,
     chatMessages: chat.messages,

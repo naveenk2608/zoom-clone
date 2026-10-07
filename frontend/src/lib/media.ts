@@ -9,21 +9,40 @@ export const CAMERA_CONSTRAINTS: MediaTrackConstraints = {
   height: { ideal: 720 },
 };
 
-/** Asks for the camera. Rejects if it's blocked, missing or busy. */
-export function openCamera(): Promise<MediaStream> {
+/**
+ * Asks for the camera: the one with `deviceId`, or the browser's default when
+ * it is null. Rejects if it's blocked, missing or busy.
+ */
+export function openCamera(deviceId: string | null = null): Promise<MediaStream> {
   // Browsers only offer mediaDevices on a secure page: https, or http://localhost.
   if (!navigator.mediaDevices) {
     return Promise.reject(new DOMException("Not a secure page", "SecurityError"));
   }
-  return navigator.mediaDevices.getUserMedia({ video: CAMERA_CONSTRAINTS, audio: false });
+  return navigator.mediaDevices.getUserMedia({
+    video: { ...CAMERA_CONSTRAINTS, ...deviceConstraints(deviceId) },
+    audio: false,
+  });
 }
 
-/** Asks for the microphone. Rejects if it's blocked, missing or busy. */
-export function openMicrophone(): Promise<MediaStream> {
+/** Asks for the microphone, like openCamera. Rejects if it's blocked, missing or busy. */
+export function openMicrophone(deviceId: string | null = null): Promise<MediaStream> {
   if (!navigator.mediaDevices) {
     return Promise.reject(new DOMException("Not a secure page", "SecurityError"));
   }
-  return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  return navigator.mediaDevices.getUserMedia({ audio: deviceConstraints(deviceId), video: false });
+}
+
+/**
+ * Picks one device. "exact" makes the request fail rather than quietly open
+ * a different device. No constraint at all means the browser's default.
+ */
+function deviceConstraints(deviceId: string | null): MediaTrackConstraints {
+  return deviceId === null ? {} : { deviceId: { exact: deviceId } };
+}
+
+/** Whether this browser can play sound on a chosen speaker (Safari and phones can't). */
+export function canChooseSpeaker(): boolean {
+  return "setSinkId" in HTMLMediaElement.prototype;
 }
 
 /** Asks which screen, window or tab to share. Rejects if the user cancels or it isn't supported. */
