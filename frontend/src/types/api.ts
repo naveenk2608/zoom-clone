@@ -62,6 +62,10 @@ export interface ScheduleIn {
   participant_video_on: boolean;
 }
 
+export interface JoinIn {
+  display_name: string; // 1–100 characters after trimming
+}
+
 export type ParticipantRole = "host" | "attendee";
 
 export interface ParticipantOut {

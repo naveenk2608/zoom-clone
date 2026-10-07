@@ -54,3 +54,16 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **The join session is checked when read back.** sessionStorage can hold anything, so `loadJoinSession` checks the stored shape and treats damaged data as "not joined".
 - **The Start button sits beside the title** on a meeting card; the bottom row has no room for three controls in the narrow column. It reads "Join" for a meeting that is already running, where `/start` rejoins as host.
 - **A placeholder room until Phase 5.** `/meeting/{code}` shows the meeting and your role, and sends a tab with no saved session to `/j/{code}`. Phase 5 replaces it with the real room.
+
+## Phase 4: pre-join
+
+- **The preview opens only the camera.** The mic is just a choice on this page (Mute / Unmute), saved in the join session; the room opens it in Phase 6.
+- **A camera failure never blocks joining.** `useCameraPreview` turns the camera off and the preview shows why (blocked, missing, busy); Join then saves `video_on: false`.
+- **The preview and the room each open the camera.** The light blinks once on the way in, which is simpler than handing a live stream from one page to the next.
+- **A meeting nobody can join never asks for the camera.** Invalid, cancelled and ended meetings show their message and "Back to home" without rendering the preview.
+- **The code is checked before any request.** `/j/upcoming` would otherwise call `GET /api/meetings/upcoming`, which is a real path, so `isMeetingCode` rejects anything that isn't 11 digits first.
+- **Back goes to Home.** An invite link opened in a new tab has no history to go back to.
+- **The Remember box shows whether a name is stored.** It starts ticked when one is, ticking it saves the name on Join, and unticking it forgets the name.
+- **The name follows /me until you type.** The field shows the remembered name, then the signed-in user's, and switches to what you type once you change it, so a slow `/me` still fills it in.
+- **Join errors appear under the button, not in a toast.** For example, a meeting cancelled after the page loaded.
+- **No carets on the preview pill.** Zoom's ^ menus pick devices, which this demo doesn't offer; the room toolbar will show them as placeholders.

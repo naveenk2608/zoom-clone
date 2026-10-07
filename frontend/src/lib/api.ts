@@ -1,6 +1,7 @@
 import { API_URL } from "@/lib/config";
 import type {
   InstantIn,
+  JoinIn,
   JoinOut,
   MeetingOut,
   RecentMeetingOut,
@@ -111,4 +112,8 @@ export async function cancelMeeting(code: string): Promise<void> {
 
 export function startMeeting(code: string): Promise<JoinOut> {
   return request("POST", `/api/meetings/${code}/start`);
+}
+
+export function joinMeeting(code: string, body: JoinIn): Promise<JoinOut> {
+  return request("POST", `/api/meetings/${code}/join`, body);
 }

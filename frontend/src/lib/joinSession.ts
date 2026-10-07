@@ -1,7 +1,11 @@
 // Who this browser tab is in a meeting. It's kept in sessionStorage, which
 // belongs to one tab, so two tabs of the same browser act as two people.
+// Also the name remembered for future meetings, kept in localStorage, which
+// every tab shares and which survives closing the browser.
 
 import type { JoinOut, ParticipantRole } from "@/types/api";
+
+const REMEMBERED_NAME_KEY = "zc:remembered_name";
 
 export interface JoinSession {
   participant_id: number;
@@ -12,7 +16,7 @@ export interface JoinSession {
   video_on: boolean;
 }
 
-type MediaChoice = Pick<JoinSession, "audio_on" | "video_on">;
+export type MediaChoice = Pick<JoinSession, "audio_on" | "video_on">;
 
 function storageKey(code: string): string {
   return `zc:session:${code}`;
@@ -64,4 +68,17 @@ function isJoinSession(value: unknown): value is JoinSession {
     "video_on" in value &&
     typeof value.video_on === "boolean"
   );
+}
+
+/** The name saved by "Remember my name for future meetings", or null. */
+export function loadRememberedName(): string | null {
+  return localStorage.getItem(REMEMBERED_NAME_KEY);
+}
+
+export function rememberName(name: string): void {
+  localStorage.setItem(REMEMBERED_NAME_KEY, name);
+}
+
+export function forgetRememberedName(): void {
+  localStorage.removeItem(REMEMBERED_NAME_KEY);
 }
