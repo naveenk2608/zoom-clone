@@ -23,7 +23,7 @@ A video meetings web app modelled on Zoom's web portal and meeting room. You can
 ### Core features
 
 - **Dashboard.** Zoom-style top navigation (Schedule, Join, Host, and an avatar menu with Profile and Settings placeholders), a sidebar, a profile card and quick actions (Schedule, Join, New meeting).
-  - **Upcoming meetings** are grouped under Today, Tomorrow and then the date. Meetings that are running sit under "In progress". Each card has Start (or Join), Copy Invitation, and a "…" menu with Edit and Delete.
+  - **Upcoming meetings** are grouped under Today, Tomorrow and then the date. Meetings that are running sit under "In progress". Each card has Start (or Join), Copy Invitation, and a "…" menu with Edit and Delete. A meeting created in another browser shows only Join, which opens the pre-join page.
   - **Recent meetings** shows how long each meeting actually ran and how many people attended.
 - **Instant meeting.** Creates a unique 11-digit meeting ID (shown as `123 4567 8901`), an invite link of the form `/j/<meeting id>`, and takes you straight into the room as host.
 - **Join meeting.** Accepts a meeting ID (spaces and dashes are fine) or a full invite link, and checks that the meeting exists before leaving the page.
@@ -119,6 +119,7 @@ erDiagram
         bool mute_on_entry
         bool host_video_on
         bool participant_video_on
+        text host_key_hash "SHA-256 of the host key, NULL for seeded meetings"
         datetime cancelled_at "soft delete"
         datetime created_at
         datetime updated_at
@@ -151,7 +152,7 @@ erDiagram
 ### Tables
 
 - **`users`**: people with an account. The demo has no sign-in, so one seeded user is always "logged in".
-- **`meetings`**: a meeting as planned, either instant or scheduled. Its public identity is `meeting_code`, separate from the internal integer `id`, so internal IDs never appear in URLs and the public format could change later.
+- **`meetings`**: a meeting as planned, either instant or scheduled. Its public identity is `meeting_code`, separate from the internal integer `id`, so internal IDs never appear in URLs and the public format could change later. `host_key_hash` is the hash of the key that proves which browser created it (see [Assumptions](#assumptions)).
 - **`meeting_sessions`**: each actual run of a meeting (Zoom calls this a meeting instance). A scheduled meeting can run more than once, and Recent meetings needs the real start and end times and who attended each run. Keeping runs separate from the plan makes that possible. `ended_at` is `NULL` while a session is live.
 - **`participants`**: one row per join of a session. Guests have no account, so `user_id` is `NULL` for them. `join_token` is a random secret returned when you join, and it authenticates that person's WebSocket. `status` records whether they are in the meeting, left, or were removed by the host.
 - **`chat_messages`**: messages sent during a session, linked to the participant who sent them.
@@ -163,6 +164,8 @@ The database enforces these rules itself, so bad data can't get in through any c
 - **Meeting codes** are unique and must be exactly 11 digits.
 - **At most one live session per meeting**, through a partial unique index on `meeting_sessions(meeting_id) WHERE ended_at IS NULL`.
   - If two people open a not-yet-started meeting at the same moment, both requests try to start a session. The index rejects the second insert, and that request rolls back and joins the session that won, so neither person sees an error.
+- **At most one host in the meeting per session**, through a partial unique index on `participants(session_id) WHERE role = 'host' AND status = 'in_meeting'`. Start checks first and answers 409; the index is the final guard when two devices click Start at the same moment.
+- **Host key hashes** are 64 characters (SHA-256 in hex) when present.
 - **Scheduled meetings must have a start time, duration and time zone**: a CHECK that applies only when `meeting_type = 'scheduled'`.
 - **Value ranges:**
   - Duration is 15–1440 minutes.
@@ -184,7 +187,7 @@ SQLite has no time-zone-aware type, so a small custom column type stores every t
 
 ## REST API
 
-All paths are under `/api`. Errors use `{"detail": "..."}` with a message the UI can show as it is.
+All paths are under `/api`. Errors use `{"detail": "..."}` with a message the UI can show as it is. Start, Edit and Delete take the meeting's host key in an `X-Host-Key` header (see [Assumptions](#assumptions)).
 
 | Method | Path | What it does | Notable responses |
 |---|---|---|---|
@@ -192,12 +195,12 @@ All paths are under `/api`. Errors use `{"detail": "..."}` with a message the UI
 | GET | `/api/me` | The signed-in (default) user | |
 | GET | `/api/meetings/upcoming` | Upcoming meetings for the dashboard | |
 | GET | `/api/meetings/recent` | Recent (ended) meetings for the dashboard | |
-| POST | `/api/meetings/instant` | New meeting: creates the meeting, starts it and joins you as host | Returns the meeting, your participant and a join token |
-| POST | `/api/meetings` | Schedule a meeting | 201; 422 for a start time in the past or an unknown time zone |
-| GET | `/api/meetings/{code}` | Look up a meeting by its 11-digit ID | 404 if unknown |
-| PUT | `/api/meetings/{code}` | Edit a scheduled meeting | 403 if not the host; 409 if cancelled or instant |
-| DELETE | `/api/meetings/{code}` | Cancel (soft delete) a meeting | 204; 403 if not the host; 409 while it is live |
-| POST | `/api/meetings/{code}/start` | The host starts the meeting, or rejoins it | 403 if not the host; 410 if cancelled, or an instant meeting that has ended |
+| POST | `/api/meetings/instant` | New meeting: creates the meeting, starts it and joins you as host | Returns the meeting, your participant, a join token and the `host_key` (sent only this once) |
+| POST | `/api/meetings` | Schedule a meeting | 201 with the meeting and its `host_key` (sent only this once); 422 for a start time in the past or an unknown time zone |
+| GET | `/api/meetings/{code}` | Look up a meeting by its 11-digit ID | 404 if unknown. `has_host_key` says whether Start, Edit and Delete need a key |
+| PUT | `/api/meetings/{code}` | Edit a scheduled meeting | 403 if not the host, or "Only the host can do this." without the right host key; 409 if cancelled or instant |
+| DELETE | `/api/meetings/{code}` | Cancel (soft delete) a meeting | 204; 403 if not the host, or "Only the host can do this." without the right host key; 409 while it is live |
+| POST | `/api/meetings/{code}/start` | The host starts the meeting, or rejoins it | 403 if not the host, or "Only the host can do this." without the right host key; 409 "This meeting is already being hosted on another device." while the host is in it; 410 if cancelled, or an instant meeting that has ended |
 | POST | `/api/meetings/{code}/join` | Join as a guest with a display name | 404 if unknown; 410 if cancelled, or an instant meeting that has ended |
 | GET | `/api/ice-servers` | STUN and TURN servers for the browsers' peer connections | TURN credentials valid for 24 hours |
 
@@ -251,7 +254,7 @@ The server rejects every `host_*` message from anyone who isn't the host. A `med
 ## Meeting lifecycle
 
 - **New meeting** creates the meeting, its live session and the host's participant row in one transaction.
-- **Start** (on a scheduled meeting) is only allowed for the meeting's host. It starts a session, or rejoins the live one.
+- **Start** (on a scheduled meeting) is only allowed for the meeting's host, from the browser that created it. It starts a session, or rejoins the live one. While the host is in the meeting, Start answers 409, and the dashboard offers to join as a participant instead.
 - **Join** always adds a guest attendee. Attendees may join a scheduled meeting before the host, like Zoom's "allow participants to join anytime"; the first join starts the session.
 - **A session ends** when:
   - the host clicks End Meeting for All,
@@ -328,7 +331,7 @@ cd frontend && npm run lint        # ESLint
 cd frontend && npm run build       # production build, including the TypeScript type check
 ```
 
-The backend tests use a temporary SQLite database per test. They cover meeting codes, schedule validation (past start times, unknown time zones, duration limits), join rules (unknown, cancelled and ended meetings, host and guest roles, two people joining at the same moment), the Upcoming and Recent lists, cancelling, the seed data, and the WebSocket: joining, leaving, reconnecting, ending the meeting, host controls (including Ask to Unmute and Stop Video), the host's permissions and how the server enforces them, chat, reactions and raised hands.
+The backend tests use a temporary SQLite database per test. They cover meeting codes, schedule validation (past start times, unknown time zones, duration limits), join rules (unknown, cancelled and ended meetings, host and guest roles, two people joining at the same moment), one host per session (a second Start, Start after the host left, a host who refreshes, two Starts at the same moment), host keys (right, wrong and missing keys, and seeded meetings), the Upcoming and Recent lists, cancelling, the seed data, and the WebSocket: joining, leaving, reconnecting, ending the meeting, host controls (including Ask to Unmute and Stop Video), the host's permissions and how the server enforces them, chat, reactions and raised hands.
 
 ## Environment variables
 
@@ -381,6 +384,10 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 
 - **No login.** As the brief allows, a seeded default user (Alex Morgan) is always signed in. Only one dependency, `get_current_user`, knows this, so adding real authentication means replacing that one function.
 - **Who is host.** Only New meeting (or Host) and Start make you the host. Joining through the Join page or an invite link always makes you a guest attendee, even for your own meeting. This is what lets you test host controls from a second tab.
+- **Host ownership without accounts.** Every visitor is the same demo user, so the account alone can't tell one person's meetings from another's. Two rules keep the host role with the person who should have it:
+  - **The browser that creates a meeting owns it.** Creating a meeting (New meeting or Schedule) returns a random host key once. The browser keeps it in `localStorage` (`zc:hostkey:<meeting id>`) and sends it in an `X-Host-Key` header on Start, Edit and Delete; without the right key those answer 403 "Only the host can do this." The server stores only a SHA-256 hash of the key and compares it with `secrets.compare_digest`. On the dashboard, another browser sees such a meeting with Join (the pre-join page) instead of Start, and without Edit and Delete. The seeded meetings have no key, so any browser can start them.
+  - **One host per live session.** While the host is in the meeting, Start answers 409 "This meeting is already being hosted on another device.", and the dashboard offers Join as Participant or Cancel, as Zoom does. A host who refreshes the page reconnects with the join token saved in that tab and keeps the role without calling Start. Once the host has left, Start works again; if the old tab then tries to reconnect, it is sent to the pre-join page instead.
+  - The key belongs to the browser, not the person: clearing site data or switching browsers loses it, and anyone who copies it from `localStorage` can act as host. Real accounts would replace both rules.
 - **Join anytime.** Attendees can join a scheduled meeting before the host arrives.
 - **Delete means cancel.** Deleting a meeting marks it cancelled instead of removing the row, which keeps its history. A meeting that is running can't be deleted.
 - **Default duration is one hour.** Zoom's 40-minute limit on free accounts is out of scope.
@@ -397,9 +404,9 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 - **One backend instance.** Who is connected lives in the server's memory, so the backend can't run as several instances without shared state such as Redis pub/sub.
 - **Demo data resets.** Render's free tier doesn't keep files between restarts, so the SQLite database resets whenever the server restarts or sleeps, and the demo data is seeded again.
 - **Screen sharing is desktop only.** Mobile browsers don't allow websites to capture the screen; phones show a notice instead.
-- **No migrations.** Tables are created at startup with `create_all`; a production version would use Alembic.
+- **No migrations.** Tables are created at startup with `create_all`, which doesn't change tables that already exist. After a schema change (such as the `host_key_hash` column), delete `backend/zoom_clone.db` before starting the server; Render starts each deploy with a fresh database anyway. A production version would use Alembic.
 - **Permissions are enforced on the state the server knows.** The server refuses to record or pass on an unmute or a camera start that isn't allowed, and the app turns the device off. Audio and video themselves go straight between browsers, so a modified client could still send them; enforcing that would need a media server.
-- **Edge case:** if someone joins through the API but never opens the meeting page, that session stays live until the server restarts, because only a WebSocket disconnect starts the 30-second timer that ends an empty session.
+- **Edge case:** if someone joins through the API but never opens the meeting page, that session stays live until the server restarts, because only a WebSocket disconnect starts the 30-second timer that ends an empty session. If that someone is the host, their participant row also stays "in the meeting", so Start answers 409 until then; joining as a participant still works.
 
 ## Possible next steps
 
