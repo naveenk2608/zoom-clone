@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     frontend_base_url: str = "http://localhost:3000"
     # Comma-separated, e.g. "https://zoom-clone.vercel.app,http://localhost:3000"
     cors_origins: str = "http://localhost:3000"
+    # The TURN relay for browsers that can't connect directly. The defaults are
+    # Metered's free Open Relay, whose shared secret Metered publishes.
+    turn_host: str = "staticauth.openrelay.metered.ca"
+    turn_secret: str = "openrelayprojectsecret"
 
     @property
     def cors_origin_list(self) -> list[str]:
