@@ -82,6 +82,8 @@ async def receive_messages(factory: actions.SessionFactory, connection: Connecti
             await host_actions.mute_all(connection)
         elif message.type == "host_mute":
             await host_actions.mute_one(connection, message.participant_id)
+        elif message.type == "host_ask_unmute":
+            await host_actions.ask_to_unmute(connection, message.participant_id)
         elif message.type == "host_remove":
             await host_actions.remove(factory, connection, message.participant_id)
         elif message.type == "host_end":

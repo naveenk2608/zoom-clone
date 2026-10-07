@@ -10,6 +10,7 @@ import { SpeakerView } from "@/components/meeting/SpeakerView";
 import { Toolbar } from "@/components/meeting/Toolbar";
 import { VideoGrid } from "@/components/meeting/VideoGrid";
 import type { RoomView } from "@/components/meeting/ViewMenu";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useActiveSpeaker } from "@/hooks/useActiveSpeaker";
 import { useCopyText } from "@/hooks/useCopyText";
 import { useMeetingRoom, type RoomPerson } from "@/hooks/useMeetingRoom";
@@ -153,6 +154,7 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
               onInvite={() => copyText(meeting.invite_link, "Invite link copied")}
               onMuteAll={room.muteAll}
               onMute={room.mute}
+              onAskToUnmute={room.askToUnmute}
               onLowerHand={room.lowerHand}
               onRemove={room.remove}
               onClose={() => setParticipantsOpen(false)}
@@ -160,6 +162,19 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
           )}
         </aside>
       )}
+      {/* Closing it any other way (Escape, the backdrop) means staying muted. */}
+      <ConfirmDialog
+        open={room.unmuteAsked}
+        onOpenChange={(open) => {
+          if (!open) room.answerUnmuteRequest(false);
+        }}
+        title="The host would like you to unmute"
+        description="Others will hear you once you unmute."
+        cancelLabel="Stay Muted"
+        confirmLabel="Unmute"
+        confirmVariant="primary"
+        onConfirm={() => room.answerUnmuteRequest(true)}
+      />
     </div>
   );
 }

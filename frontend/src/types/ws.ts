@@ -45,6 +45,7 @@ export type ServerMessage =
   | { type: "reaction"; participant_id: number; emoji: Reaction } // to everyone, the sender included
   | { type: "hand"; participant_id: number; raised: boolean } // to everyone, the sender included
   | { type: "force_mute" } // the host muted us: mute the mic and send media_state
+  | { type: "ask_unmute" } // the host asks us to unmute; only we can, so we are asked
   | { type: "removed" } // the host removed us; the socket then closes with CLOSE_REMOVED
   | { type: "meeting_ended" }
   | { type: "error"; message: string };
@@ -61,6 +62,7 @@ export type ClientMessage =
   | { type: "host_mute_all" }
   | { type: "host_mute"; participant_id: number }
   | { type: "host_remove"; participant_id: number }
+  | { type: "host_ask_unmute"; participant_id: number }
   | { type: "host_end" };
 
 // The codes the server closes the socket with when it refuses or ends a connection.

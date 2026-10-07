@@ -12,6 +12,7 @@ type ParticipantsPanelProps = {
   onInvite: () => void; // copies the invite link
   onMuteAll: () => void;
   onMute: (participantId: number) => void;
+  onAskToUnmute: (participantId: number) => void;
   onLowerHand: (participantId: number) => void;
   onRemove: (participantId: number) => void;
   onClose: () => void;
@@ -39,6 +40,7 @@ export function ParticipantsPanel(props: ParticipantsPanelProps) {
             person={person}
             canManage={isHost && !person.isMe}
             onMute={() => props.onMute(person.id)}
+            onAskToUnmute={() => props.onAskToUnmute(person.id)}
             onLowerHand={() => props.onLowerHand(person.id)}
             onRemove={() => setRemoving(person)}
           />

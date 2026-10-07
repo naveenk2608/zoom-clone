@@ -107,6 +107,11 @@ export function useLocalMedia(entry: MediaEntry) {
     setAudioOn(false);
   }
 
+  /** We said yes when the host asked us to unmute. Already unmuted: nothing to do. */
+  function unmute() {
+    if (!audioOn) toggleAudio();
+  }
+
   function toggleVideo() {
     setVideoTrack(null); // the camera effect's cleanup stops it; never show a stopped track
     setVideoOn((on) => !on);
@@ -150,6 +155,7 @@ export function useLocalMedia(entry: MediaEntry) {
     toggleAudio,
     toggleVideo,
     mute,
+    unmute,
     chooseMicrophone,
     chooseCamera,
     stop,

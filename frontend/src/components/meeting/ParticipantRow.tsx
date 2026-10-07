@@ -13,12 +13,14 @@ type ParticipantRowProps = {
   person: RoomPerson;
   canManage: boolean; // we are the host and this is someone else: show the "…" menu
   onMute: () => void;
+  onAskToUnmute: () => void;
   onLowerHand: () => void;
   onRemove: () => void;
 };
 
 /** One person in the Participants panel: avatar, name, raised hand, mic and camera state, host menu. */
-export function ParticipantRow({ person, canManage, onMute, onLowerHand, onRemove }: ParticipantRowProps) {
+export function ParticipantRow(props: ParticipantRowProps) {
+  const { person, canManage } = props;
   return (
     <li className="flex items-center gap-3 py-2">
       <Avatar
@@ -57,9 +59,14 @@ export function ParticipantRow({ person, canManage, onMute, onLowerHand, onRemov
             </button>
           </RoomMenuTrigger>
           <RoomMenuContent>
-            <RoomMenuItem label="Mute" onSelect={onMute} disabled={!person.audio} />
-            {person.handRaised && <RoomMenuItem label="Lower Hand" onSelect={onLowerHand} />}
-            <RoomMenuItem label="Remove" onSelect={onRemove} />
+            {/* As in Zoom, the host can mute someone, but only ask them to unmute. */}
+            {person.audio ? (
+              <RoomMenuItem label="Mute" onSelect={props.onMute} />
+            ) : (
+              <RoomMenuItem label="Ask to Unmute" onSelect={props.onAskToUnmute} />
+            )}
+            {person.handRaised && <RoomMenuItem label="Lower Hand" onSelect={props.onLowerHand} />}
+            <RoomMenuItem label="Remove" onSelect={props.onRemove} />
           </RoomMenuContent>
         </RoomMenu>
       ) : (

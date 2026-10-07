@@ -67,7 +67,9 @@ def test_a_muted_participant_can_unmute_themselves(live_client: TestClient) -> N
         assert host_socket.receive_json()["audio"] is True
 
 
-@pytest.mark.parametrize("command", ["host_mute_all", "host_mute", "host_remove"])
+@pytest.mark.parametrize(
+    "command", ["host_mute_all", "host_mute", "host_remove", "host_ask_unmute"]
+)
 def test_only_the_host_can_use_host_controls(
     live_client: TestClient, db: Session, command: str
 ) -> None:

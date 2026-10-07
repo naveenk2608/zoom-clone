@@ -12,6 +12,7 @@ const SERVER_MESSAGE_TYPES = [
   "reaction",
   "hand",
   "force_mute",
+  "ask_unmute",
   "removed",
   "meeting_ended",
   "error",

@@ -94,6 +94,12 @@ class ForceMute(BaseModel):
     type: Literal["force_mute"] = "force_mute"
 
 
+class AskUnmute(BaseModel):
+    """The host asks us to unmute. The client asks the person; only they can turn the mic on."""
+
+    type: Literal["ask_unmute"] = "ask_unmute"
+
+
 class Removed(BaseModel):
     """The host removed us. The server closes the socket with CLOSE_REMOVED right after."""
 
@@ -119,6 +125,7 @@ ServerMessage = (
     | ReactionOut
     | HandOut
     | ForceMute
+    | AskUnmute
     | Removed
     | MeetingEnded
     | ErrorOut

@@ -1,4 +1,4 @@
-"""The host's commands: mute everyone, mute one person, remove one person, end the meeting.
+"""The host's commands: mute all or one, ask to unmute, remove, and end the meeting.
 
 ws.py lets a message reach these only when the sender's role is host.
 
@@ -11,7 +11,13 @@ from starlette.concurrency import run_in_threadpool
 from app.realtime import actions
 from app.realtime.connection_manager import Connection
 from app.realtime.messages import CLOSE_ENDED, CLOSE_REMOVED
-from app.realtime.server_messages import ForceMute, MeetingEnded, ParticipantLeft, Removed
+from app.realtime.server_messages import (
+    AskUnmute,
+    ForceMute,
+    MeetingEnded,
+    ParticipantLeft,
+    Removed,
+)
 from app.services import presence
 
 
@@ -43,6 +49,13 @@ async def mute_one(host: Connection, participant_id: int) -> None:
     target = await find_target(host, participant_id)
     if target is not None and target.audio:
         await actions.manager.send(target, ForceMute())
+
+
+async def ask_to_unmute(host: Connection, participant_id: int) -> None:
+    """Asks one muted person to unmute. Only a request: the host can never turn a mic on."""
+    target = await find_target(host, participant_id)
+    if target is not None and not target.audio:
+        await actions.manager.send(target, AskUnmute())
 
 
 async def remove(factory: actions.SessionFactory, host: Connection, participant_id: int) -> None:

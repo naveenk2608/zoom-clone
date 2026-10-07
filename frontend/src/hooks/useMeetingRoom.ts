@@ -55,6 +55,8 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
   };
   // Who we pinned to the main tile, or null. Nobody else sees it.
   const [pinnedId, setPinnedId] = useState<number | null>(null);
+  // The host asked us to unmute and we haven't answered yet.
+  const [unmuteAsked, setUnmuteAsked] = useState(false);
 
   // Socket messages also go to the peer connections, the chat and the
   // reactions, which are set up just below because they need the socket's
@@ -67,6 +69,7 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
       media.mute(); // the media_state effect below tells everyone
       showToast("The host has muted you.");
     }
+    if (message.type === "ask_unmute") setUnmuteAsked(true); // MeetingRoom asks us
     if (message.type === "participant_left") {
       // The pinned person left: unpin, so they aren't pinned again if they come back.
       setPinnedId((current) => (current === message.participant_id ? null : current));
@@ -145,6 +148,12 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     router.push("/");
   }
 
+  /** Our answer to "The host would like you to unmute". Only our own yes turns the mic on. */
+  function answerUnmuteRequest(unmute: boolean) {
+    setUnmuteAsked(false);
+    if (unmute) media.unmute(); // the media_state effect above tells everyone
+  }
+
   return {
     status,
     people,
@@ -160,12 +169,17 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     sendChat: chat.sendMessage,
     react: reactions.react,
     toggleHand: reactions.toggleHand,
+    unmuteAsked,
+    answerUnmuteRequest,
     leave,
     // Host controls. The server checks the role and answers with the effects:
     // media_state from each muted person, participant_left, meeting_ended, hand.
+    // Ask to Unmute has none unless the person says yes.
     lowerHand: reactions.lowerHand,
     muteAll: () => send({ type: "host_mute_all" }),
     mute: (participantId: number) => send({ type: "host_mute", participant_id: participantId }),
+    askToUnmute: (participantId: number) =>
+      send({ type: "host_ask_unmute", participant_id: participantId }),
     remove: (participantId: number) => send({ type: "host_remove", participant_id: participantId }),
     endForAll: () => send({ type: "host_end" }),
   };

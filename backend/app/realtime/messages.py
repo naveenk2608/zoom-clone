@@ -60,6 +60,11 @@ class HostRemoveIn(BaseModel):
     participant_id: int
 
 
+class HostAskUnmuteIn(BaseModel):
+    type: Literal["host_ask_unmute"]
+    participant_id: int
+
+
 # Matches the CHECK on chat_messages.body. Surrounding spaces are trimmed first.
 ChatBody = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
@@ -111,10 +116,11 @@ ClientMessage = Annotated[
     | HostEndIn
     | HostMuteAllIn
     | HostMuteIn
-    | HostRemoveIn,
+    | HostRemoveIn
+    | HostAskUnmuteIn,
     Field(discriminator="type"),
 ]
 client_message_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
 
 # Message types only the host may send.
-HOST_ONLY = {"host_end", "host_mute_all", "host_mute", "host_remove"}
+HOST_ONLY = {"host_end", "host_mute_all", "host_mute", "host_remove", "host_ask_unmute"}

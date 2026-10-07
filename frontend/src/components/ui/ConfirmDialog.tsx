@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/Button";
 
 type ConfirmDialogProps = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (open: boolean) => void; // false: closed by the cancel button, Escape or the backdrop
   title: string;
   description: string;
   confirmLabel: string;
   onConfirm: () => void;
+  cancelLabel?: string;
+  confirmVariant?: "danger" | "primary"; // red for something destructive, such as Remove
 };
 
 /** A modal "are you sure?" box. Radix traps focus inside and closes it on Escape. */
@@ -21,6 +23,8 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   onConfirm,
+  cancelLabel = "Cancel",
+  confirmVariant = "danger",
 }: ConfirmDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -33,9 +37,9 @@ export function ConfirmDialog({
           </Dialog.Description>
           <div className="mt-6 flex justify-end gap-2">
             <Dialog.Close asChild>
-              <Button variant="neutral">Cancel</Button>
+              <Button variant="neutral">{cancelLabel}</Button>
             </Dialog.Close>
-            <Button variant="danger" onClick={onConfirm}>
+            <Button variant={confirmVariant} onClick={onConfirm}>
               {confirmLabel}
             </Button>
           </div>
