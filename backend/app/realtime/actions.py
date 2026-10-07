@@ -21,6 +21,8 @@ from app.realtime.messages import (
     ParticipantJoined,
     ParticipantLeft,
     SelfOut,
+    SignalData,
+    SignalOut,
     Welcome,
 )
 from app.services import presence
@@ -95,6 +97,17 @@ def media_state_message(connection: Connection) -> MediaStateOut:
     return MediaStateOut(
         participant_id=connection.participant_id, audio=connection.audio, video=connection.video
     )
+
+
+async def relay_signal(connection: Connection, to: int, data: SignalData) -> None:
+    """Passes a WebRTC message to one participant of the same session.
+
+    It is dropped if they are not connected: they left, and their peer
+    connection is closed anyway.
+    """
+    target = manager.find(connection.session_id, to)
+    if target is not None:
+        await manager.send(target, SignalOut(from_=connection.participant_id, data=data))
 
 
 async def reject(connection: Connection, message: str) -> None:

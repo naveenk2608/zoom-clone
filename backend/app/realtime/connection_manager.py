@@ -71,6 +71,10 @@ class ConnectionManager:
         room = self._rooms.get(connection.session_id, {})
         return [other for id, other in room.items() if id != connection.participant_id]
 
+    def find(self, session_id: int, participant_id: int) -> Connection | None:
+        """The connection of one participant in a session, if they are connected."""
+        return self._rooms.get(session_id, {}).get(participant_id)
+
     def is_empty(self, session_id: int) -> bool:
         return session_id not in self._rooms
 
@@ -80,7 +84,8 @@ class ConnectionManager:
 
     async def send(self, connection: Connection, message: ServerMessage) -> None:
         try:
-            await connection.websocket.send_text(message.model_dump_json())
+            # by_alias, so fields like SignalOut.from_ go out under their wire name.
+            await connection.websocket.send_text(message.model_dump_json(by_alias=True))
         except (RuntimeError, WebSocketDisconnect):
             pass  # that socket already closed; its own cleanup will run
 

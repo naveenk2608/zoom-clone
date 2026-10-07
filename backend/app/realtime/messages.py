@@ -6,7 +6,7 @@ Pydantic tells apart by `type`.
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter
 
 from app.models.participant import ParticipantRole
 from app.services.errors import Gone, NotAllowed, ServiceError
@@ -43,7 +43,20 @@ class HostEndIn(BaseModel):
     type: Literal["host_end"]
 
 
-ClientMessage = Annotated[MediaStateIn | LeaveIn | HostEndIn, Field(discriminator="type")]
+# A WebRTC offer, answer or ICE candidate. The server only passes it on, so it
+# is kept as plain JSON rather than modelled field by field.
+SignalData = dict[str, JsonValue]
+
+
+class SignalIn(BaseModel):
+    type: Literal["signal"]
+    to: int  # the participant id it is for
+    data: SignalData
+
+
+ClientMessage = Annotated[
+    MediaStateIn | LeaveIn | HostEndIn | SignalIn, Field(discriminator="type")
+]
 client_message_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
 
 # Message types only the host may send.
@@ -90,6 +103,13 @@ class MediaStateOut(BaseModel):
     video: bool
 
 
+class SignalOut(BaseModel):
+    type: Literal["signal"] = "signal"
+    # `from` is a Python keyword, so the field is from_ and is sent as "from".
+    from_: int = Field(serialization_alias="from")
+    data: SignalData
+
+
 class MeetingEnded(BaseModel):
     type: Literal["meeting_ended"] = "meeting_ended"
 
@@ -100,5 +120,11 @@ class ErrorOut(BaseModel):
 
 
 ServerMessage = (
-    Welcome | ParticipantJoined | ParticipantLeft | MediaStateOut | MeetingEnded | ErrorOut
+    Welcome
+    | ParticipantJoined
+    | ParticipantLeft
+    | MediaStateOut
+    | SignalOut
+    | MeetingEnded
+    | ErrorOut
 )

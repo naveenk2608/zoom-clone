@@ -60,6 +60,8 @@ async def receive_messages(factory: actions.SessionFactory, connection: Connecti
 
         if message.type in HOST_ONLY and connection.role != "host":
             await actions.reject(connection, "Only the host can do that.")
+        elif message.type == "signal":
+            await actions.relay_signal(connection, message.to, message.data)
         elif message.type == "media_state":
             await actions.relay_media_state(connection, message.audio, message.video)
         elif message.type == "leave":

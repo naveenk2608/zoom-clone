@@ -132,6 +132,27 @@ def test_media_state_reaches_the_others(live_client: TestClient) -> None:
         }
 
 
+def test_a_signal_reaches_only_the_participant_it_is_for(live_client: TestClient) -> None:
+    host = start_meeting(live_client)
+    guest = add_guest(live_client, host.code)
+    offer = {"kind": "description", "description": {"type": "offer", "sdp": "v=0"}}
+
+    with connect(live_client, host) as host_socket, connect(live_client, guest) as guest_socket:
+        host_socket.receive_json()  # welcome
+        host_socket.receive_json()  # participant_joined
+        guest_socket.receive_json()  # welcome
+
+        guest_socket.send_json({"type": "signal", "to": 999_999, "data": offer})  # nobody
+        guest_socket.send_json({"type": "signal", "to": host.participant_id, "data": offer})
+
+        # The first signal was dropped, so the next message the host gets is the second.
+        assert host_socket.receive_json() == {
+            "type": "signal",
+            "from": guest.participant_id,
+            "data": offer,
+        }
+
+
 def test_only_the_host_can_end_the_meeting(live_client: TestClient) -> None:
     host = start_meeting(live_client)
     guest = add_guest(live_client, host.code)
