@@ -67,3 +67,17 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **The name follows /me until you type.** The field shows the remembered name, then the signed-in user's, and switches to what you type once you change it, so a slow `/me` still fills it in.
 - **Join errors appear under the button, not in a toast.** For example, a meeting cancelled after the page loaded.
 - **No carets on the preview pill.** Zoom's ^ menus pick devices, which this demo doesn't offer; the room toolbar will show them as placeholders.
+
+## Phase 5: room shell and presence
+
+- **Accept first, then check.** The socket accepts the connection and closes with 4001 (bad token), 4003 (removed) or 4010 (ended) after a failed check, because a browser can't read the close code of a refused handshake. `close_code_for` maps each admission error to its code.
+- **One lock per meeting code.** Joins, leaves, the grace timer and "End meeting for all" take it, so a reconnect can't race a leave or an ending. Everything for a meeting runs one step at a time.
+- **Short database sessions.** The socket gets a session factory (`get_session_factory`) and opens a session for each step inside `run_in_threadpool`, instead of holding one open for the whole call. Services return plain data (`RoomMember`), never ORM objects from a closed session.
+- **A reconnect replaces the old socket silently.** The manager keys sockets by participant. A newer socket for the same participant replaces the old one (closed with 4001) and only a `media_state` is broadcast, not a second `participant_joined`. Cleanup of the old socket does nothing, since it is no longer the registered one.
+- **Grace period is a task.** When the last connection drops, a task waits 30 s and ends the session if the room is still empty. A reconnect cancels it. Clicking Leave as the last person ends the session at once.
+- **WebSocket tests share one event loop.** `live_client` runs the app inside `with TestClient(...)`, as the real server shares one loop and one connection manager across sockets. Each test also gets a fresh manager.
+- **Media is flags only until Phase 6.** Mute and Video flip a flag, broadcast `media_state` and save it in the join session, so a refresh keeps it. No camera or mic opens in the room yet, so every tile shows its camera-off look.
+- **Chat and host controls wait for Phase 7.** Chat and Host tools show "Not available in this demo". The panel frame (`RoomPanel`) is built so Chat is a second panel later.
+- **Cancel replaces the toolbar while the End menu is open**, as in the reference screenshot. Escape also closes the menu.
+- **Rejoin reloads the page.** After a lost connection the room shows "Rejoin", which reloads. The page reads the saved join session again, so it reconnects with the latest mic and camera state.
+- **`/ws/ping` is gone**, together with its test.

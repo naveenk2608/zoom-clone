@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import create_tables
-from app.realtime import ping
+from app.realtime import ws
 from app.routers import health, meetings, users
 from app.seed import seed_if_empty
 from app.services.errors import ServiceError
@@ -47,4 +47,4 @@ app.include_router(health.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(meetings.router, prefix="/api")
 
-app.include_router(ping.router)  # Temporary; removed in Phase 5.
+app.include_router(ws.router)  # the live meeting socket, at /ws/meetings/{code}

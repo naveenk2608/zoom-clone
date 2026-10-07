@@ -17,6 +17,10 @@ class NotFound(ServiceError):
     status_code = 404
 
 
+class Unauthorized(ServiceError):
+    status_code = 401
+
+
 class NotAllowed(ServiceError):
     status_code = 403
 

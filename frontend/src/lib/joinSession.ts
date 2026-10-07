@@ -36,6 +36,11 @@ export function saveJoinSession(code: string, session: JoinSession): void {
   sessionStorage.setItem(storageKey(code), JSON.stringify(session));
 }
 
+/** Forgets this tab's session, after leaving a meeting or being sent out of it. */
+export function clearJoinSession(code: string): void {
+  sessionStorage.removeItem(storageKey(code));
+}
+
 /** This tab's session for the meeting, or null if it hasn't joined (or the stored data is damaged). */
 export function loadJoinSession(code: string): JoinSession | null {
   const stored = sessionStorage.getItem(storageKey(code));

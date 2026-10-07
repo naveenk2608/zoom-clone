@@ -43,3 +43,12 @@ def get_db() -> Iterator[Session]:
     """FastAPI dependency: one session per request, closed afterwards."""
     with SessionLocal() as session:
         yield session
+
+
+def get_session_factory() -> sessionmaker[Session]:
+    """FastAPI dependency for WebSockets, which live for minutes.
+
+    A socket opens a short session for each database step instead of holding
+    one for its whole life. Tests replace this with the test database's factory.
+    """
+    return SessionLocal
