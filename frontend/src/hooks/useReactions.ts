@@ -56,7 +56,5 @@ export function useReactions(send: Send, myId: number) {
     handleMessage,
     react: (emoji: Reaction) => send({ type: "reaction", emoji }),
     toggleHand: () => send(handRaised ? { type: "lower_hand" } : { type: "raise_hand" }),
-    /** The host lowers someone else's hand. */
-    lowerHand: (participantId: number) => send({ type: "lower_hand", participant_id: participantId }),
   };
 }

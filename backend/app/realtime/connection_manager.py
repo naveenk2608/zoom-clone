@@ -1,17 +1,20 @@
-"""Who is connected right now. This lives only in memory, so the backend runs as one instance."""
+"""Who is connected right now, and what the host lets them do.
+
+This lives only in memory, so the backend runs as one instance.
+"""
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.models.participant import ParticipantRole
-from app.realtime.server_messages import PersonOut, ServerMessage
+from app.realtime.server_messages import PermissionsOut, PersonOut, ServerMessage
 
 
 @dataclass
 class Connection:
-    """One participant's open WebSocket, their mic, camera and screen-share state, and their hand."""
+    """One participant's open WebSocket: their mic, camera, screen share and raised hand."""
 
     websocket: WebSocket
     meeting_code: str
@@ -36,6 +39,52 @@ class Connection:
         )
 
 
+@dataclass
+class SessionPermissions:
+    """What attendees may turn on themselves in one live session (Zoom's "Allow participants to").
+
+    The host is never restricted. When the host asks one person to unmute (or
+    to start their video), that person may do it even while the setting is
+    off, until the host mutes them (or stops their video) again.
+    """
+
+    allow_self_unmute: bool = True
+    allow_self_video: bool = True
+    mute_on_entry: bool = False  # set by Mute All: "all current and new participants"
+    unmute_granted: set[int] = field(default_factory=set)  # participant ids
+    video_granted: set[int] = field(default_factory=set)
+
+    def can_unmute(self, connection: Connection) -> bool:
+        return (
+            connection.role == "host"
+            or self.allow_self_unmute
+            or connection.participant_id in self.unmute_granted
+        )
+
+    def can_start_video(self, connection: Connection) -> bool:
+        return (
+            connection.role == "host"
+            or self.allow_self_video
+            or connection.participant_id in self.video_granted
+        )
+
+    def admit(self, connection: Connection) -> None:
+        """Turns off the mic or camera that a newcomer may not have on."""
+        muted_on_entry = self.mute_on_entry and connection.role != "host"
+        if muted_on_entry or not self.can_unmute(connection):
+            connection.audio = False
+        if not self.can_start_video(connection):
+            connection.video = False
+
+    def view_for(self, connection: Connection) -> PermissionsOut:
+        return PermissionsOut(
+            allow_self_unmute=self.allow_self_unmute,
+            allow_self_video=self.allow_self_video,
+            can_unmute=self.can_unmute(connection),
+            can_start_video=self.can_start_video(connection),
+        )
+
+
 class ConnectionManager:
     def __init__(self) -> None:
         # session id -> participant id -> connection. Insertion order is join order.
@@ -44,6 +93,9 @@ class ConnectionManager:
         self._locks: dict[str, asyncio.Lock] = {}
         # session id -> the task that ends the session if nobody comes back.
         self._grace_tasks: dict[int, asyncio.Task[None]] = {}
+        # session id -> what the host allows. Kept while the session is live,
+        # even when everyone has dropped for a moment.
+        self._permissions: dict[int, SessionPermissions] = {}
 
     def lock(self, meeting_code: str) -> asyncio.Lock:
         if meeting_code not in self._locks:
@@ -88,6 +140,13 @@ class ConnectionManager:
     def take_all(self, session_id: int) -> list[Connection]:
         """Removes and returns every connection in a session (used when it ends)."""
         return list(self._rooms.pop(session_id, {}).values())
+
+    def permissions(self, session_id: int) -> SessionPermissions:
+        """The session's permissions, starting with everything allowed, as in Zoom."""
+        return self._permissions.setdefault(session_id, SessionPermissions())
+
+    def forget_permissions(self, session_id: int) -> None:
+        self._permissions.pop(session_id, None)  # the session ended
 
     async def send(self, connection: Connection, message: ServerMessage) -> None:
         try:

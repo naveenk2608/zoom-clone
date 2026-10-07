@@ -3,14 +3,15 @@
 import { useState } from "react";
 
 import { ChatPanel } from "@/components/meeting/ChatPanel";
+import { HostRequestDialogs } from "@/components/meeting/HostRequestDialogs";
 import { MeetingStatusScreen } from "@/components/meeting/MeetingStatusScreen";
+import { MuteAllDialog } from "@/components/meeting/MuteAllDialog";
 import { ParticipantsPanel } from "@/components/meeting/ParticipantsPanel";
 import { RoomHeader } from "@/components/meeting/RoomHeader";
 import { SpeakerView } from "@/components/meeting/SpeakerView";
 import { Toolbar } from "@/components/meeting/Toolbar";
 import { VideoGrid } from "@/components/meeting/VideoGrid";
 import type { RoomView } from "@/components/meeting/ViewMenu";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useActiveSpeaker } from "@/hooks/useActiveSpeaker";
 import { useCopyText } from "@/hooks/useCopyText";
 import { useMeetingRoom, type RoomPerson } from "@/hooks/useMeetingRoom";
@@ -35,6 +36,7 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
   const [seenCount, setSeenCount] = useState(0);
   const unreadCount = chatOpen ? 0 : room.chatMessages.length - seenCount;
   const [endMenuOpen, setEndMenuOpen] = useState(false);
+  const [muteAllOpen, setMuteAllOpen] = useState(false);
   // The browser refused to play sound before any click on the page (after a refresh, say).
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [playToken, setPlayToken] = useState(0);
@@ -119,6 +121,7 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
         )}
         <Toolbar
           me={room.me}
+          permissions={room.permissions}
           devices={room.devices}
           participantCount={room.people.length}
           participantsOpen={participantsOpen}
@@ -134,10 +137,11 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
           onReact={room.react}
           onToggleHand={room.toggleHand}
           onToggleShare={room.toggleShare}
-          onMuteAll={room.muteAll}
+          onMuteAll={() => setMuteAllOpen(true)}
+          onSetPermissions={room.host.setPermissions}
           onToggleEndMenu={() => setEndMenuOpen((open) => !open)}
           onLeave={room.leave}
-          onEndForAll={room.endForAll}
+          onEndForAll={room.host.endForAll}
         />
       </div>
       {(chatOpen || participantsOpen) && (
@@ -151,29 +155,26 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
             <ParticipantsPanel
               people={room.people}
               isHost={isHost}
+              host={room.host}
               onInvite={() => copyText(meeting.invite_link, "Invite link copied")}
-              onMuteAll={room.muteAll}
-              onMute={room.mute}
-              onAskToUnmute={room.askToUnmute}
-              onLowerHand={room.lowerHand}
-              onRemove={room.remove}
+              onMuteAll={() => setMuteAllOpen(true)}
               onClose={() => setParticipantsOpen(false)}
             />
           )}
         </aside>
       )}
-      {/* Closing it any other way (Escape, the backdrop) means staying muted. */}
-      <ConfirmDialog
-        open={room.unmuteAsked}
-        onOpenChange={(open) => {
-          if (!open) room.answerUnmuteRequest(false);
-        }}
-        title="The host would like you to unmute"
-        description="Others will hear you once you unmute."
-        cancelLabel="Stay Muted"
-        confirmLabel="Unmute"
-        confirmVariant="primary"
-        onConfirm={() => room.answerUnmuteRequest(true)}
+      {muteAllOpen && (
+        <MuteAllDialog
+          allowSelfUnmute={room.permissions.allow_self_unmute}
+          onConfirm={room.host.muteAll}
+          onClose={() => setMuteAllOpen(false)}
+        />
+      )}
+      <HostRequestDialogs
+        unmuteAsked={room.unmuteAsked}
+        videoAsked={room.videoAsked}
+        onAnswerUnmute={room.answerUnmuteRequest}
+        onAnswerVideo={room.answerVideoRequest}
       />
     </div>
   );

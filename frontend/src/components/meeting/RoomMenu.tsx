@@ -24,7 +24,8 @@ export function RoomMenuContent({ side = "bottom", align = "end", children }: Ro
         side={side}
         align={align}
         sideOffset={6}
-        className="z-50 max-w-[min(24rem,calc(100vw-1rem))] min-w-44 rounded-lg border border-white/10 bg-room-panel-raised py-1 text-white shadow-xl"
+        // Radix measures the room left on screen; a long menu (the host's More on a phone) scrolls.
+        className="z-50 max-h-(--radix-dropdown-menu-content-available-height) max-w-[min(24rem,calc(100vw-1rem))] min-w-44 overflow-y-auto rounded-lg border border-white/10 bg-room-panel-raised py-1 text-white shadow-xl"
       >
         {children}
       </DropdownMenu.Content>
@@ -85,6 +86,31 @@ export function RoomMenuRadioItem({ value, label }: { value: string; label: stri
       </span>
       <span className="truncate">{label}</span>
     </DropdownMenu.RadioItem>
+  );
+}
+
+type RoomMenuCheckboxItemProps = {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+};
+
+/** An on/off setting in a menu, with a tick while it is on. */
+export function RoomMenuCheckboxItem({ label, checked, onCheckedChange }: RoomMenuCheckboxItemProps) {
+  return (
+    <DropdownMenu.CheckboxItem
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+      // Same look as RoomMenuRadioItem.
+      className="flex cursor-pointer items-center gap-2 py-2 pr-4 pl-3 text-sm outline-none data-highlighted:bg-white/10"
+    >
+      <span className="flex w-4 shrink-0 justify-center">
+        <DropdownMenu.ItemIndicator>
+          <Check size={16} aria-hidden="true" />
+        </DropdownMenu.ItemIndicator>
+      </span>
+      {label}
+    </DropdownMenu.CheckboxItem>
   );
 }
 

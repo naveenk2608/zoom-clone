@@ -3,7 +3,7 @@ import { ChevronUp, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { RoomMenu, RoomMenuContent, RoomMenuTrigger } from "@/components/meeting/RoomMenu";
-import { NotAvailable } from "@/components/ui/Tooltip";
+import { NotAvailable, Tooltip } from "@/components/ui/Tooltip";
 
 /**
  * Where a toolbar button shows. The toolbar is a CSS container, so "wide" and
@@ -19,13 +19,15 @@ export const SHOW_CLASSES: Record<ToolbarShow, string> = {
 };
 
 /**
- * The look of every toolbar button. `active` marks the button of an open panel.
+ * The look of every toolbar button. `active` marks the button of an open panel;
+ * a disabled one is dimmed and doesn't light up under the pointer.
  * A narrow toolbar uses slightly smaller buttons, so five fit on a 360px phone.
  */
-export function toolbarButtonClasses(active?: boolean): string {
+export function toolbarButtonClasses(active?: boolean, disabled?: boolean): string {
   return clsx(
-    "flex w-16 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px] text-white hover:bg-white/10",
+    "flex w-16 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px] text-white",
     "@3xl:w-18 @3xl:px-1 @3xl:text-xs",
+    disabled ? "cursor-not-allowed opacity-50" : "hover:bg-white/10",
     active && "bg-room-btn-active",
   );
 }
@@ -76,6 +78,7 @@ type ToolbarButtonProps = ToolbarButtonFaceProps & {
   onClick?: () => void; // without it the button is a placeholder
   ariaLabel?: string; // when the icon's meaning differs from the visible label
   active?: boolean; // its panel is open
+  disabledReason?: string; // given: the button is disabled, and its tooltip says why
   caret?: boolean; // Zoom's ^ next to the icon; a placeholder unless `menu` is given
   menu?: CaretMenu;
   show?: ToolbarShow;
@@ -89,26 +92,38 @@ export function ToolbarButton({
   onClick,
   ariaLabel,
   active,
+  disabledReason,
   caret,
   menu,
   show = "always",
   ...face
 }: ToolbarButtonProps) {
+  const disabled = disabledReason !== undefined;
   const button = (
     <button
       type="button"
       aria-label={ariaLabel}
       aria-pressed={active}
-      onClick={onClick}
-      className={toolbarButtonClasses(active)}
+      // aria-disabled rather than disabled: a disabled button gets no hover or
+      // focus, so its tooltip couldn't explain why.
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onClick}
+      className={toolbarButtonClasses(active, disabled)}
     >
       <ToolbarButtonFace {...face} />
     </button>
   );
 
+  let shown = button;
+  if (disabledReason !== undefined) {
+    shown = <Tooltip content={disabledReason}>{button}</Tooltip>;
+  } else if (onClick === undefined) {
+    shown = <NotAvailable>{button}</NotAvailable>;
+  }
+
   return (
     <div className={clsx("items-center", SHOW_CLASSES[show])}>
-      {onClick === undefined ? <NotAvailable>{button}</NotAvailable> : button}
+      {shown}
       {menu !== undefined ? (
         <RoomMenu>
           <RoomMenuTrigger asChild>

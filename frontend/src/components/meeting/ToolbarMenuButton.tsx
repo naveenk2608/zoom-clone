@@ -19,7 +19,9 @@ type ToolbarMenuButtonProps = ToolbarButtonFaceProps & {
 export function ToolbarMenuButton({ show = "always", children, ...face }: ToolbarMenuButtonProps) {
   return (
     <div className={clsx("items-center", SHOW_CLASSES[show])}>
-      <RoomMenu>
+      {/* Not modal: Mute All opens a dialog from here, and a modal menu
+          closing as a dialog opens can leave the page unclickable. */}
+      <RoomMenu modal={false}>
         <RoomMenuTrigger asChild>
           {/* Radix marks the trigger data-state="open" while its menu is showing. */}
           <button

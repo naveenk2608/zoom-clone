@@ -16,6 +16,19 @@ class SelfOut(BaseModel):
     id: int
     display_name: str
     role: ParticipantRole
+    # The mic and camera state we were let in with. Turned off when the host
+    # doesn't allow turning them on (or after Mute All); the client follows.
+    audio: bool
+    video: bool
+
+
+class PermissionsOut(BaseModel):
+    """The host's "Allow participants to" settings, and what this one person may do."""
+
+    allow_self_unmute: bool
+    allow_self_video: bool
+    can_unmute: bool  # always for the host; otherwise the setting, or the host asked them to
+    can_start_video: bool
 
 
 class PersonOut(BaseModel):
@@ -32,6 +45,14 @@ class Welcome(BaseModel):
     type: Literal["welcome"] = "welcome"
     self: SelfOut
     participants: list[PersonOut]  # everyone else already in the meeting
+    permissions: PermissionsOut
+
+
+class PermissionsUpdate(BaseModel):
+    """What someone may do changed: the host changed a setting, or asked or muted them."""
+
+    type: Literal["permissions"] = "permissions"
+    permissions: PermissionsOut
 
 
 class ParticipantJoined(BaseModel):
@@ -100,6 +121,18 @@ class AskUnmute(BaseModel):
     type: Literal["ask_unmute"] = "ask_unmute"
 
 
+class ForceVideoOff(BaseModel):
+    """The host stopped our video: the client turns its camera off, like force_mute."""
+
+    type: Literal["force_video_off"] = "force_video_off"
+
+
+class AskStartVideo(BaseModel):
+    """The host asks us to start our video. Only we can: the client asks the person."""
+
+    type: Literal["ask_start_video"] = "ask_start_video"
+
+
 class Removed(BaseModel):
     """The host removed us. The server closes the socket with CLOSE_REMOVED right after."""
 
@@ -117,6 +150,7 @@ class ErrorOut(BaseModel):
 
 ServerMessage = (
     Welcome
+    | PermissionsUpdate
     | ParticipantJoined
     | ParticipantLeft
     | MediaStateOut
@@ -126,6 +160,8 @@ ServerMessage = (
     | HandOut
     | ForceMute
     | AskUnmute
+    | ForceVideoOff
+    | AskStartVideo
     | Removed
     | MeetingEnded
     | ErrorOut

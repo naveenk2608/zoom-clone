@@ -94,27 +94,39 @@ export function useLocalMedia(entry: MediaEntry) {
     };
   }, [videoOn, pickedCameraId, showToast]);
 
-  function toggleAudio() {
-    if (audioTrack === null) {
-      showToast(micError ?? "Your microphone is still starting.");
-      return;
-    }
-    setAudioOn((on) => !on);
-  }
+  // mute, unmute, stopVideo and startVideo each set one state, so calling one
+  // twice (say, after a welcome and then a force_mute) can't flip it back.
+  // The host's messages use them; the toolbar uses the toggles.
 
-  /** The host muted us. Unmuting stays up to us. */
   function mute() {
     setAudioOn(false);
   }
 
-  /** We said yes when the host asked us to unmute. Already unmuted: nothing to do. */
   function unmute() {
-    if (!audioOn) toggleAudio();
+    if (audioTrack === null) {
+      showToast(micError ?? "Your microphone is still starting.");
+      return;
+    }
+    setAudioOn(true);
+  }
+
+  function stopVideo() {
+    setVideoTrack(null); // the camera effect's cleanup stops it; never show a stopped track
+    setVideoOn(false);
+  }
+
+  function startVideo() {
+    setVideoOn(true); // the camera effect opens it
+  }
+
+  function toggleAudio() {
+    if (audioOn) mute();
+    else unmute();
   }
 
   function toggleVideo() {
-    setVideoTrack(null); // the camera effect's cleanup stops it; never show a stopped track
-    setVideoOn((on) => !on);
+    if (videoOn) stopVideo();
+    else startVideo();
   }
 
   /** Switches to another mic. Muted stays muted: see the mute effect above. */
@@ -156,8 +168,12 @@ export function useLocalMedia(entry: MediaEntry) {
     toggleVideo,
     mute,
     unmute,
+    stopVideo,
+    startVideo,
     chooseMicrophone,
     chooseCamera,
     stop,
   };
 }
+
+export type LocalMedia = ReturnType<typeof useLocalMedia>;

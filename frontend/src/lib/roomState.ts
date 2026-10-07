@@ -4,6 +4,7 @@ import type { RoomParticipant, ServerMessage } from "@/types/ws";
 
 const SERVER_MESSAGE_TYPES = [
   "welcome",
+  "permissions",
   "participant_joined",
   "participant_left",
   "media_state",
@@ -12,7 +13,9 @@ const SERVER_MESSAGE_TYPES = [
   "reaction",
   "hand",
   "force_mute",
+  "force_video_off",
   "ask_unmute",
+  "ask_start_video",
   "removed",
   "meeting_ended",
   "error",

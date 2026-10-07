@@ -14,19 +14,24 @@ import {
 
 import { AudioMenuItems, VideoMenuItems } from "@/components/meeting/DeviceMenus";
 import { EndMeetingMenu } from "@/components/meeting/EndMeetingMenu";
+import { HostToolsItems } from "@/components/meeting/HostToolsItems";
 import { MoreMenu } from "@/components/meeting/MoreMenu";
 import { ReactionItems } from "@/components/meeting/ReactionItems";
-import { RoomMenuItem } from "@/components/meeting/RoomMenu";
 import { ToolbarButton } from "@/components/meeting/ToolbarButton";
 import { ToolbarMenuButton } from "@/components/meeting/ToolbarMenuButton";
 import type { RoomDevices } from "@/hooks/useMediaDevices";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
-import type { Reaction } from "@/types/ws";
+import type { PermissionChange, Permissions, Reaction } from "@/types/ws";
 
 const RED_ICON = "text-zoom-red";
 
+// The same words as the server's error, should it refuse anyway.
+const NO_UNMUTE = "The host has disabled unmuting for participants";
+const NO_VIDEO = "The host has disabled participant video";
+
 type ToolbarProps = {
   me: RoomPerson;
+  permissions: Permissions; // what the host lets us turn on
   devices: RoomDevices; // for the ^ menus next to Mute and Video
   participantCount: number;
   participantsOpen: boolean;
@@ -42,7 +47,8 @@ type ToolbarProps = {
   onReact: (emoji: Reaction) => void;
   onToggleHand: () => void;
   onToggleShare: () => void;
-  onMuteAll: () => void;
+  onMuteAll: () => void; // opens the Mute All dialog
+  onSetPermissions: (change: PermissionChange) => void;
   onToggleEndMenu: () => void;
   onLeave: () => void;
   onEndForAll: () => void;
@@ -72,6 +78,21 @@ export function Toolbar(props: ToolbarProps) {
     );
   }
 
+  // Turning off is always allowed; turning on may not be.
+  const { permissions } = props;
+  const unmuteBlocked = !me.audio && !permissions.can_unmute;
+  const videoBlocked = !me.video && !permissions.can_start_video;
+  // The host's menu: Host tools on a wide toolbar, inside More on a narrow one.
+  const hostTools =
+    me.role === "host" ? (
+      <HostToolsItems
+        permissions={permissions}
+        onMuteAll={props.onMuteAll}
+        onManageParticipants={props.onOpenParticipants}
+        onSetPermissions={props.onSetPermissions}
+      />
+    ) : null;
+
   return (
     // @container: the buttons below choose what to show from the toolbar's own width.
     <footer className="@container flex h-18 shrink-0 items-center justify-between bg-room-bar px-2">
@@ -81,6 +102,7 @@ export function Toolbar(props: ToolbarProps) {
           label={me.audio ? "Mute" : "Unmute"}
           iconClassName={me.audio ? undefined : RED_ICON}
           onClick={props.onToggleAudio}
+          disabledReason={unmuteBlocked ? NO_UNMUTE : undefined}
           menu={{ label: "Audio settings", items: <AudioMenuItems devices={props.devices} /> }}
         />
         <ToolbarButton
@@ -89,6 +111,7 @@ export function Toolbar(props: ToolbarProps) {
           ariaLabel={me.video ? "Stop video" : "Start video"}
           iconClassName={me.video ? undefined : RED_ICON}
           onClick={props.onToggleVideo}
+          disabledReason={videoBlocked ? NO_VIDEO : undefined}
           menu={{ label: "Video settings", items: <VideoMenuItems devices={props.devices} /> }}
         />
       </div>
@@ -127,16 +150,15 @@ export function Toolbar(props: ToolbarProps) {
           caret
           show="wide"
         />
-        {me.role === "host" && (
+        {hostTools !== null && (
           <ToolbarMenuButton icon={Shield} label="Host tools" show="wide">
-            <RoomMenuItem label="Mute All" onSelect={props.onMuteAll} />
-            <RoomMenuItem label="Manage Participants" onSelect={props.onOpenParticipants} />
+            {hostTools}
           </ToolbarMenuButton>
         )}
         {/* Wide, More is a placeholder; narrow, it holds the buttons hidden above. */}
         <ToolbarButton icon={Ellipsis} label="More" show="wide" />
         <MoreMenu
-          isHost={me.role === "host"}
+          hostTools={hostTools}
           unreadCount={props.unreadCount}
           sharing={props.sharing}
           handRaised={me.handRaised}
@@ -144,7 +166,6 @@ export function Toolbar(props: ToolbarProps) {
           onReact={props.onReact}
           onToggleHand={props.onToggleHand}
           onToggleShare={props.onToggleShare}
-          onMuteAll={props.onMuteAll}
         />
       </div>
       {/* Only the host can end the meeting, so for everyone else it is Leave. */}

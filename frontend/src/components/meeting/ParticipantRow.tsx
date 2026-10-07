@@ -8,19 +8,17 @@ import {
   RoomMenuTrigger,
 } from "@/components/meeting/RoomMenu";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
+import type { HostCommands } from "@/lib/hostCommands";
 
 type ParticipantRowProps = {
   person: RoomPerson;
   canManage: boolean; // we are the host and this is someone else: show the "…" menu
-  onMute: () => void;
-  onAskToUnmute: () => void;
-  onLowerHand: () => void;
-  onRemove: () => void;
+  host: HostCommands;
+  onRemove: () => void; // asks "Remove?" first
 };
 
 /** One person in the Participants panel: avatar, name, raised hand, mic and camera state, host menu. */
-export function ParticipantRow(props: ParticipantRowProps) {
-  const { person, canManage } = props;
+export function ParticipantRow({ person, canManage, host, onRemove }: ParticipantRowProps) {
   return (
     <li className="flex items-center gap-3 py-2">
       <Avatar
@@ -59,14 +57,24 @@ export function ParticipantRow(props: ParticipantRowProps) {
             </button>
           </RoomMenuTrigger>
           <RoomMenuContent>
-            {/* As in Zoom, the host can mute someone, but only ask them to unmute. */}
+            {/* As in Zoom, the host can turn a mic or camera off, but only ask to turn it on. */}
             {person.audio ? (
-              <RoomMenuItem label="Mute" onSelect={props.onMute} />
+              <RoomMenuItem label="Mute" onSelect={() => host.mute(person.id)} />
             ) : (
-              <RoomMenuItem label="Ask to Unmute" onSelect={props.onAskToUnmute} />
+              <RoomMenuItem label="Ask to Unmute" onSelect={() => host.askToUnmute(person.id)} />
             )}
-            {person.handRaised && <RoomMenuItem label="Lower Hand" onSelect={props.onLowerHand} />}
-            <RoomMenuItem label="Remove" onSelect={props.onRemove} />
+            {person.video ? (
+              <RoomMenuItem label="Stop Video" onSelect={() => host.stopVideo(person.id)} />
+            ) : (
+              <RoomMenuItem
+                label="Ask to Start Video"
+                onSelect={() => host.askToStartVideo(person.id)}
+              />
+            )}
+            {person.handRaised && (
+              <RoomMenuItem label="Lower Hand" onSelect={() => host.lowerHand(person.id)} />
+            )}
+            <RoomMenuItem label="Remove" onSelect={onRemove} />
           </RoomMenuContent>
         </RoomMenu>
       ) : (

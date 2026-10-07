@@ -48,6 +48,16 @@ class HostEndIn(BaseModel):
 
 class HostMuteAllIn(BaseModel):
     type: Literal["host_mute_all"]
+    # The dialog's "Allow participants to unmute themselves". Left out: unchanged.
+    allow_self_unmute: bool | None = None
+
+
+class HostSetPermissionsIn(BaseModel):
+    """Host tools → "Allow participants to". A setting left out stays as it is."""
+
+    type: Literal["host_set_permissions"]
+    allow_self_unmute: bool | None = None
+    allow_self_video: bool | None = None
 
 
 class HostMuteIn(BaseModel):
@@ -62,6 +72,16 @@ class HostRemoveIn(BaseModel):
 
 class HostAskUnmuteIn(BaseModel):
     type: Literal["host_ask_unmute"]
+    participant_id: int
+
+
+class HostStopVideoIn(BaseModel):
+    type: Literal["host_stop_video"]
+    participant_id: int
+
+
+class HostAskStartVideoIn(BaseModel):
+    type: Literal["host_ask_start_video"]
     participant_id: int
 
 
@@ -117,10 +137,22 @@ ClientMessage = Annotated[
     | HostMuteAllIn
     | HostMuteIn
     | HostRemoveIn
-    | HostAskUnmuteIn,
+    | HostAskUnmuteIn
+    | HostSetPermissionsIn
+    | HostStopVideoIn
+    | HostAskStartVideoIn,
     Field(discriminator="type"),
 ]
 client_message_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
 
 # Message types only the host may send.
-HOST_ONLY = {"host_end", "host_mute_all", "host_mute", "host_remove", "host_ask_unmute"}
+HOST_ONLY = {
+    "host_end",
+    "host_mute_all",
+    "host_mute",
+    "host_remove",
+    "host_ask_unmute",
+    "host_set_permissions",
+    "host_stop_video",
+    "host_ask_start_video",
+}

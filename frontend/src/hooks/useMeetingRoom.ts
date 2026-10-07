@@ -1,14 +1,15 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { useToast } from "@/components/ui/Toast";
 import { useChat } from "@/hooks/useChat";
+import { useHostRequests } from "@/hooks/useHostRequests";
 import { useLocalMedia } from "@/hooks/useLocalMedia";
 import { useMediaDevices, type RoomDevices } from "@/hooks/useMediaDevices";
 import { useMeetingSocket } from "@/hooks/useMeetingSocket";
 import { usePeerConnections } from "@/hooks/usePeerConnections";
 import { useReactions } from "@/hooks/useReactions";
 import { useScreenShare } from "@/hooks/useScreenShare";
+import { hostCommands } from "@/lib/hostCommands";
 import { clearJoinSession, saveJoinSession, type JoinSession } from "@/lib/joinSession";
 import type { ParticipantRole } from "@/types/api";
 import type { Reaction, ServerMessage } from "@/types/ws";
@@ -30,12 +31,11 @@ export interface RoomPerson {
 
 /**
  * Everything the room screen needs: who is here, the media, our own mic,
- * camera and screen share, the devices to pick from, the chat, host
- * controls, and Leave / End.
+ * camera and screen share, the devices to pick from, the chat, what the host
+ * allows and asks, host controls, and Leave / End.
  */
 export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RTCConfiguration) {
   const router = useRouter();
-  const showToast = useToast();
   // The state we entered with. The socket connects once with these; later
   // changes are sent as messages instead of reconnecting.
   const [entry] = useState({ audio: session.audio_on, video: session.video_on });
@@ -55,8 +55,7 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
   };
   // Who we pinned to the main tile, or null. Nobody else sees it.
   const [pinnedId, setPinnedId] = useState<number | null>(null);
-  // The host asked us to unmute and we haven't answered yet.
-  const [unmuteAsked, setUnmuteAsked] = useState(false);
+  const hostRequests = useHostRequests(media);
 
   // Socket messages also go to the peer connections, the chat and the
   // reactions, which are set up just below because they need the socket's
@@ -65,11 +64,7 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     peers.handleMessage(message);
     chat.handleMessage(message);
     reactions.handleMessage(message);
-    if (message.type === "force_mute") {
-      media.mute(); // the media_state effect below tells everyone
-      showToast("The host has muted you.");
-    }
-    if (message.type === "ask_unmute") setUnmuteAsked(true); // MeetingRoom asks us
+    hostRequests.handleMessage(message); // mic and camera changes reach everyone via media_state
     if (message.type === "participant_left") {
       // The pinned person left: unpin, so they aren't pinned again if they come back.
       setPinnedId((current) => (current === message.participant_id ? null : current));
@@ -148,12 +143,6 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     router.push("/");
   }
 
-  /** Our answer to "The host would like you to unmute". Only our own yes turns the mic on. */
-  function answerUnmuteRequest(unmute: boolean) {
-    setUnmuteAsked(false);
-    if (unmute) media.unmute(); // the media_state effect above tells everyone
-  }
-
   return {
     status,
     people,
@@ -169,18 +158,12 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     sendChat: chat.sendMessage,
     react: reactions.react,
     toggleHand: reactions.toggleHand,
-    unmuteAsked,
-    answerUnmuteRequest,
+    permissions: hostRequests.permissions,
+    unmuteAsked: hostRequests.unmuteAsked,
+    videoAsked: hostRequests.videoAsked,
+    answerUnmuteRequest: hostRequests.answerUnmuteRequest,
+    answerVideoRequest: hostRequests.answerVideoRequest,
     leave,
-    // Host controls. The server checks the role and answers with the effects:
-    // media_state from each muted person, participant_left, meeting_ended, hand.
-    // Ask to Unmute has none unless the person says yes.
-    lowerHand: reactions.lowerHand,
-    muteAll: () => send({ type: "host_mute_all" }),
-    mute: (participantId: number) => send({ type: "host_mute", participant_id: participantId }),
-    askToUnmute: (participantId: number) =>
-      send({ type: "host_ask_unmute", participant_id: participantId }),
-    remove: (participantId: number) => send({ type: "host_remove", participant_id: participantId }),
-    endForAll: () => send({ type: "host_end" }),
+    host: hostCommands(send),
   };
 }

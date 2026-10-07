@@ -1,6 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
 
@@ -13,6 +14,7 @@ type ConfirmDialogProps = {
   onConfirm: () => void;
   cancelLabel?: string;
   confirmVariant?: "danger" | "primary"; // red for something destructive, such as Remove
+  children?: ReactNode; // more choices between the text and the buttons, such as a checkbox
 };
 
 /** A modal "are you sure?" box. Radix traps focus inside and closes it on Escape. */
@@ -25,6 +27,7 @@ export function ConfirmDialog({
   onConfirm,
   cancelLabel = "Cancel",
   confirmVariant = "danger",
+  children,
 }: ConfirmDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -35,6 +38,7 @@ export function ConfirmDialog({
           <Dialog.Description className="mt-2 text-[15px] text-text-secondary">
             {description}
           </Dialog.Description>
+          {children !== undefined && <div className="mt-4">{children}</div>}
           <div className="mt-6 flex justify-end gap-2">
             <Dialog.Close asChild>
               <Button variant="neutral">{cancelLabel}</Button>

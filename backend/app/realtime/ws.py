@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import get_session_factory
-from app.realtime import actions, host_actions, reactions
+from app.realtime import actions, host_actions, reactions, relays
 from app.realtime.connection_manager import Connection
 from app.realtime.messages import HOST_ONLY, client_message_adapter, close_code_for
 from app.services.errors import ServiceError
@@ -61,13 +61,13 @@ async def receive_messages(factory: actions.SessionFactory, connection: Connecti
         if message.type in HOST_ONLY and connection.role != "host":
             await actions.reject(connection, "Only the host can do that.")
         elif message.type == "signal":
-            await actions.relay_signal(connection, message.to, message.data)
+            await relays.relay_signal(connection, message.to, message.data)
         elif message.type == "media_state":
-            await actions.relay_media_state(
+            await relays.relay_media_state(
                 connection, message.audio, message.video, message.screen
             )
         elif message.type == "chat":
-            await actions.send_chat(factory, connection, message.body)
+            await relays.send_chat(factory, connection, message.body)
         elif message.type == "reaction":
             await reactions.send_reaction(connection, message.emoji)
         elif message.type == "raise_hand":
@@ -79,11 +79,19 @@ async def receive_messages(factory: actions.SessionFactory, connection: Connecti
             await actions.manager.close(connection, NORMAL_CLOSE)
             return
         elif message.type == "host_mute_all":
-            await host_actions.mute_all(connection)
+            await host_actions.mute_all(connection, message.allow_self_unmute)
         elif message.type == "host_mute":
             await host_actions.mute_one(connection, message.participant_id)
         elif message.type == "host_ask_unmute":
             await host_actions.ask_to_unmute(connection, message.participant_id)
+        elif message.type == "host_stop_video":
+            await host_actions.stop_video(connection, message.participant_id)
+        elif message.type == "host_ask_start_video":
+            await host_actions.ask_to_start_video(connection, message.participant_id)
+        elif message.type == "host_set_permissions":
+            await host_actions.set_permissions(
+                connection, message.allow_self_unmute, message.allow_self_video
+            )
         elif message.type == "host_remove":
             await host_actions.remove(factory, connection, message.participant_id)
         elif message.type == "host_end":

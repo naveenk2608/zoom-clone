@@ -68,7 +68,16 @@ def test_a_muted_participant_can_unmute_themselves(live_client: TestClient) -> N
 
 
 @pytest.mark.parametrize(
-    "command", ["host_mute_all", "host_mute", "host_remove", "host_ask_unmute"]
+    "command",
+    [
+        "host_mute_all",
+        "host_mute",
+        "host_remove",
+        "host_ask_unmute",
+        "host_stop_video",
+        "host_ask_start_video",
+        "host_set_permissions",
+    ],
 )
 def test_only_the_host_can_use_host_controls(
     live_client: TestClient, db: Session, command: str

@@ -5,29 +5,27 @@ import { RoomPanel } from "@/components/meeting/RoomPanel";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { NotAvailable } from "@/components/ui/Tooltip";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
+import type { HostCommands } from "@/lib/hostCommands";
 
 type ParticipantsPanelProps = {
   people: RoomPerson[];
-  isHost: boolean; // shows Mute All and each row's Mute / Remove menu
+  isHost: boolean; // shows Mute All and each row's host menu
+  host: HostCommands; // what the row menus do
   onInvite: () => void; // copies the invite link
-  onMuteAll: () => void;
-  onMute: (participantId: number) => void;
-  onAskToUnmute: (participantId: number) => void;
-  onLowerHand: (participantId: number) => void;
-  onRemove: (participantId: number) => void;
+  onMuteAll: () => void; // opens the Mute All dialog
   onClose: () => void;
 };
 
 /** "Participants (N)": one row per person, with Invite, Mute All and More at the bottom. */
 export function ParticipantsPanel(props: ParticipantsPanelProps) {
-  const { people, isHost, onRemove } = props;
+  const { people, isHost, host } = props;
   // The person the "Remove?" dialog is asking about.
   const [removing, setRemoving] = useState<RoomPerson | null>(null);
   // Raised hands first, as in Zoom. The sort is stable, so otherwise the order stays.
   const listed = [...people].sort((a, b) => Number(b.handRaised) - Number(a.handRaised));
 
   function confirmRemove() {
-    if (removing !== null) onRemove(removing.id);
+    if (removing !== null) host.remove(removing.id);
     setRemoving(null);
   }
 
@@ -39,9 +37,7 @@ export function ParticipantsPanel(props: ParticipantsPanelProps) {
             key={person.id}
             person={person}
             canManage={isHost && !person.isMe}
-            onMute={() => props.onMute(person.id)}
-            onAskToUnmute={() => props.onAskToUnmute(person.id)}
-            onLowerHand={() => props.onLowerHand(person.id)}
+            host={host}
             onRemove={() => setRemoving(person)}
           />
         ))}
