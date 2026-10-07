@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.concurrency import run_in_threadpool
 
 from app.realtime.connection_manager import Connection, ConnectionManager
-from app.realtime.messages import (
-    CLOSE_INVALID_TOKEN,
+from app.realtime.messages import CLOSE_INVALID_TOKEN, SignalData
+from app.realtime.server_messages import (
     ChatOut,
     ChatSender,
     ErrorOut,
@@ -23,7 +23,6 @@ from app.realtime.messages import (
     ParticipantJoined,
     ParticipantLeft,
     SelfOut,
-    SignalData,
     SignalOut,
     Welcome,
 )

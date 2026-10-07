@@ -10,14 +10,8 @@ from starlette.concurrency import run_in_threadpool
 
 from app.realtime import actions
 from app.realtime.connection_manager import Connection
-from app.realtime.messages import (
-    CLOSE_ENDED,
-    CLOSE_REMOVED,
-    ForceMute,
-    MeetingEnded,
-    ParticipantLeft,
-    Removed,
-)
+from app.realtime.messages import CLOSE_ENDED, CLOSE_REMOVED
+from app.realtime.server_messages import ForceMute, MeetingEnded, ParticipantLeft, Removed
 from app.services import presence
 
 

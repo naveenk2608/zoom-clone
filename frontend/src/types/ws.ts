@@ -1,4 +1,5 @@
-// Mirrors backend/app/realtime/messages.py. Every message has a `type` field,
+// Mirrors backend/app/realtime/messages.py (client to server) and
+// server_messages.py (server to client). Every message has a `type` field,
 // so each side is a union that TypeScript tells apart by it.
 
 import type { ParticipantRole } from "@/types/api";

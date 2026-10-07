@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.models.participant import ParticipantRole
-from app.realtime.messages import PersonOut, ServerMessage
+from app.realtime.server_messages import PersonOut, ServerMessage
 
 
 @dataclass
