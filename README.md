@@ -15,7 +15,7 @@ A video meetings web app modelled on Zoom's web portal and meeting room. You can
 1. Open the app. You are signed in as the demo user, **Alex Morgan**, and the dashboard shows seeded upcoming and recent meetings.
 2. Click **New meeting**. You land in the meeting room as the host.
 3. Click the **ⓘ** icon at the top left, copy the invite link and open it in an **incognito window** (or on another device). Enter a name and click **Join**. Each browser tab acts as a separate person.
-4. Try mic and camera (the **^** next to Mute and Video picks the microphone, speaker and camera), **Chat**, **React** (emoji and Raise Hand), **Share** (desktop browsers), switching between Speaker and Gallery view with the grid icon at the top right, pinning someone from the **…** on their video, and the host controls: **Host tools → Mute All**, the **…** menu on a row in **Participants** (Mute or Ask to Unmute, Lower Hand, Remove), and **End → End Meeting for All**.
+4. Try mic and camera (the **^** next to Mute and Video picks the microphone, speaker and camera), **Chat**, **React** (emoji and Raise Hand), **Share** (desktop browsers), switching between Speaker and Gallery view with the grid icon at the top right, pinning someone from the **…** on their video, and the host controls: **Host tools** (Mute All, and "Allow participants to" Unmute themselves and Start video), the **…** menu on a row in **Participants** (Mute or Ask to Unmute, Stop Video or Ask to Start Video, Lower Hand, Remove), and **End → End Meeting for All**.
 5. Back on Home, click **Schedule**, fill in the form and save. The meeting appears under Upcoming meetings. Ended meetings appear under Recent meetings.
 
 ## Features
@@ -45,12 +45,17 @@ A video meetings web app modelled on Zoom's web portal and meeting room. You can
 
 ### Bonus features
 
-- **Host controls:** Mute All, mute one participant, ask a muted participant to unmute, lower someone's raised hand, and remove a participant.
-  - A muted person can unmute themselves, as in Zoom. The host can never turn someone's mic on: Ask to Unmute shows that person "The host would like you to unmute", with Unmute and Stay Muted.
+- **Host controls:** Mute All, mute one participant or stop their video, ask someone to unmute or start their video, lower someone's raised hand, and remove a participant.
+  - **Permissions, like Zoom's Security menu.** Host tools has "Allow participants to: Unmute themselves" and "Start video", both on by default. When one is off, a participant's Unmute or Video button is disabled with a tooltip saying why ("The host has disabled unmuting for participants", "The host has disabled participant video"). People who join then come in muted, or with their camera off.
+  - **Mute All** asks first: "All current and new participants will be muted", with "Allow participants to unmute themselves" (ticked unless the host turned it off). People who join afterwards are muted too.
+  - **The host can turn a mic or camera off, but only ask to turn it on.** Ask to Unmute and Ask to Start Video show that person a dialog (Unmute or Stay Muted, Start Video or Keep Video Off). Being asked also lets them turn it on while the setting is off, until the host mutes them or stops their video again.
+  - **The server enforces it.** A request to unmute or start video without permission is refused: the person's app gets the same "turn it off" message the host's controls send, plus the reason. The host is never restricted.
   - A removed person is disconnected, and their join token is refused from then on, so refreshing the page doesn't bring them back.
 - **Chat** inside the meeting, saved to the database.
 - **Screen sharing** in desktop browsers.
 - **Responsive design:** the dashboard stacks on small screens, the meeting toolbar moves less-used buttons into More when space is short (with the reactions palette at the top of More, and no **^** device menus), and the side panels go full screen on phones.
+  - On a phone the room is exactly as tall as the visible screen (`100dvh`, which counts the browser's address bar), so the whole toolbar is on screen without scrolling. The room page never scrolls; the chat and participant lists scroll inside their panels.
+  - With `viewport-fit=cover`, the toolbar adds the home bar's height (`env(safe-area-inset-bottom)`) below its buttons, and the room keeps clear of a notch.
 
 ## Tech stack
 
@@ -80,7 +85,7 @@ flowchart LR
 - **Media never passes through the server.** Every pair of browsers connects directly (a mesh); the server only relays the messages that set those connections up.
 - **SQLite is the record; memory is the present.** The database stores meetings, each run of a meeting, attendance and chat. Who is connected right now lives in an in-memory connection manager.
 
-**Backend layout.** Routers only parse the request and return a response. Business rules live in `services/`, which raise small domain errors (`NotFound`, `Gone`, `Conflict`, …) that one exception handler turns into `{"detail": "..."}` with the right status code. Pydantic schemas define every request and response. `realtime/` holds the WebSocket endpoint, its message types (`messages.py` for what clients send, `server_messages.py` for what the server sends), the connection manager, host commands, and reactions and raised hands.
+**Backend layout.** Routers only parse the request and return a response. Business rules live in `services/`, which raise small domain errors (`NotFound`, `Gone`, `Conflict`, …) that one exception handler turns into `{"detail": "..."}` with the right status code. Pydantic schemas define every request and response. `realtime/` holds the WebSocket endpoint, its message types (`messages.py` for what clients send, `server_messages.py` for what the server sends), the connection manager (with each live session's permissions), joining and leaving, relaying signals, mic and camera state and chat, host commands, and reactions and raised hands.
 
 **Frontend layout.** Components only display what they are given. Meeting logic lives in hooks: `useMeetingRoom` combines `useLocalMedia` (mic and camera, and which ones), `useMediaDevices` (the device lists), `useMeetingSocket`, `usePeerConnections` (WebRTC), `useChat`, `useReactions` and `useScreenShare`, and `useActiveSpeaker` measures each remote microphone's level with the Web Audio API to pick who is speaking. Shared helpers (meeting code parsing, dates and time zones, invitation text, WebRTC setup) live in `lib/`, and `types/` mirrors the backend's API and WebSocket shapes exactly.
 
@@ -215,21 +220,28 @@ Every message is JSON with a `type` field.
 | `raise_hand` | You raise your hand |
 | `lower_hand` | You lower your hand. With a `participant_id`, the host lowers that person's hand; anyone else gets an error. |
 | `leave` | You click Leave Meeting |
-| `host_mute_all`, `host_mute`, `host_ask_unmute`, `host_remove`, `host_end` | Host controls (each one-person command takes a `participant_id`). The server rejects them from anyone who isn't the host. |
+| `host_mute_all` | Host: Mute All, with the dialog's `allow_self_unmute` |
+| `host_set_permissions` | Host: turns `allow_self_unmute` and/or `allow_self_video` on or off |
+| `host_mute`, `host_stop_video` | Host: turns one person's mic or camera off (`participant_id`). Also takes back an earlier ask. |
+| `host_ask_unmute`, `host_ask_start_video` | Host: asks one person whose mic or camera is off to turn it on (`participant_id`) |
+| `host_remove`, `host_end` | Host: removes one person (`participant_id`), or ends the meeting for everyone |
+
+The server rejects every `host_*` message from anyone who isn't the host. A `media_state` that turns the mic or camera on without permission is refused: that part stays off, and the sender gets `force_mute` or `force_video_off` and an `error`.
 
 **Server to client**
 
 | Type | Meaning |
 |---|---|
-| `welcome` | You're in: your own details and everyone already in the meeting, with their mic, camera, screen share and `hand_raised` |
+| `welcome` | You're in: your own details, with the mic and camera state you were let in with; everyone already in the meeting, with their mic, camera, screen share and `hand_raised`; and your `permissions` |
+| `permissions` | Your permissions changed: `allow_self_unmute` and `allow_self_video` (the host's settings), `can_unmute` and `can_start_video` (what you may do). Sent only to the people whose permissions changed. |
 | `participant_joined`, `participant_left` | Someone arrived (with the same details) or left |
 | `media_state` | Someone's mic, camera or screen share changed |
 | `signal` | A WebRTC message from another participant (`from`) |
 | `chat` | A chat message, with its saved ID and time |
 | `reaction` | Someone (`participant_id`) reacted with `emoji`. Sent to everyone, the sender included. |
 | `hand` | Someone's hand was raised or lowered (`participant_id`, `raised`). Sent to everyone, the sender included. |
-| `force_mute` | The host asked you to mute; your app mutes your mic |
-| `ask_unmute` | The host would like you to unmute; your app asks you, and only your answer can turn the mic on |
+| `force_mute`, `force_video_off` | The host turned your mic or camera off (or the server refused to let you turn it on); your app turns it off |
+| `ask_unmute`, `ask_start_video` | The host would like you to unmute or start your video; your app asks you, and only your answer turns it on |
 | `removed` | The host removed you; the socket then closes with 4003 |
 | `meeting_ended` | The host ended the meeting; the socket then closes with 4010 |
 | `error` | A message was refused, with the reason |
@@ -261,8 +273,8 @@ backend/
     schemas/           Pydantic request and response models
     services/          business rules: meeting codes, lifecycle, dashboard, presence, chat
     routers/           REST endpoints (health, users, meetings)
-    realtime/          WebSocket endpoint, message types, connection manager, host commands,
-                       reactions and raised hands
+    realtime/          WebSocket endpoint, message types, connection manager and permissions,
+                       joining and leaving, relays, host commands, reactions and raised hands
     seed.py            demo data (with seed_time.py and seed_rows.py)
   tests/               pytest suite
 frontend/
@@ -316,7 +328,7 @@ cd frontend && npm run lint        # ESLint
 cd frontend && npm run build       # production build, including the TypeScript type check
 ```
 
-The backend tests use a temporary SQLite database per test. They cover meeting codes, schedule validation (past start times, unknown time zones, duration limits), join rules (unknown, cancelled and ended meetings, host and guest roles, two people joining at the same moment), the Upcoming and Recent lists, cancelling, the seed data, and the WebSocket: joining, leaving, reconnecting, ending the meeting, host controls (including Ask to Unmute), chat, reactions and raised hands.
+The backend tests use a temporary SQLite database per test. They cover meeting codes, schedule validation (past start times, unknown time zones, duration limits), join rules (unknown, cancelled and ended meetings, host and guest roles, two people joining at the same moment), the Upcoming and Recent lists, cancelling, the seed data, and the WebSocket: joining, leaving, reconnecting, ending the meeting, host controls (including Ask to Unmute and Stop Video), the host's permissions and how the server enforces them, chat, reactions and raised hands.
 
 ## Environment variables
 
@@ -375,6 +387,7 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 - **If the host leaves without ending the meeting,** it carries on without a host. Zoom would ask the host to hand over the role first.
 - **Chat history isn't replayed.** People who join later see only new messages, which is Zoom's default.
 - **Pins, reactions and hands are live only.** A pin exists only on the screen of the person who made it. Reactions and raised hands aren't saved, and reconnecting lowers your hand, as rejoining does in Zoom. Device choices aren't remembered after a refresh.
+- **Host permissions last for one run of a meeting.** They live in the server's memory with the connections and start over, all allowed, the next time a scheduled meeting runs. If the host leaves while unmuting is off, it stays off until the host comes back (Start rejoins as host).
 - **Out of scope:** recurring meetings, waiting rooms, passcodes, Personal Meeting IDs, recording and breakout rooms. Buttons for these features show "Not available in this demo".
 
 ## Known limitations
@@ -385,6 +398,7 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 - **Demo data resets.** Render's free tier doesn't keep files between restarts, so the SQLite database resets whenever the server restarts or sleeps, and the demo data is seeded again.
 - **Screen sharing is desktop only.** Mobile browsers don't allow websites to capture the screen; phones show a notice instead.
 - **No migrations.** Tables are created at startup with `create_all`; a production version would use Alembic.
+- **Permissions are enforced on the state the server knows.** The server refuses to record or pass on an unmute or a camera start that isn't allowed, and the app turns the device off. Audio and video themselves go straight between browsers, so a modified client could still send them; enforcing that would need a media server.
 - **Edge case:** if someone joins through the API but never opens the meeting page, that session stays live until the server restarts, because only a WebSocket disconnect starts the 30-second timer that ends an empty session.
 
 ## Possible next steps
