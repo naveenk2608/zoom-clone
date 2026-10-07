@@ -11,7 +11,7 @@ from app.realtime.messages import PersonOut, ServerMessage
 
 @dataclass
 class Connection:
-    """One participant's open WebSocket and their current mic and camera state."""
+    """One participant's open WebSocket and their current mic, camera and screen-share state."""
 
     websocket: WebSocket
     meeting_code: str
@@ -21,6 +21,7 @@ class Connection:
     role: ParticipantRole
     audio: bool
     video: bool
+    screen: bool = False  # a new connection is never sharing yet
 
     def to_person(self) -> PersonOut:
         return PersonOut(
@@ -29,6 +30,7 @@ class Connection:
             role=self.role,
             audio=self.audio,
             video=self.video,
+            screen=self.screen,
         )
 
 
@@ -70,6 +72,9 @@ class ConnectionManager:
     def others(self, connection: Connection) -> list[Connection]:
         room = self._rooms.get(connection.session_id, {})
         return [other for id, other in room.items() if id != connection.participant_id]
+
+    def everyone(self, session_id: int) -> list[Connection]:
+        return list(self._rooms.get(session_id, {}).values())
 
     def find(self, session_id: int, participant_id: int) -> Connection | None:
         """The connection of one participant in a session, if they are connected."""

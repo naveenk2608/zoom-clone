@@ -1,9 +1,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useToast } from "@/components/ui/Toast";
+import { useChat } from "@/hooks/useChat";
 import { useLocalMedia } from "@/hooks/useLocalMedia";
 import { useMeetingSocket } from "@/hooks/useMeetingSocket";
 import { usePeerConnections } from "@/hooks/usePeerConnections";
+import { useScreenShare } from "@/hooks/useScreenShare";
 import { clearJoinSession, saveJoinSession, type JoinSession } from "@/lib/joinSession";
 import type { ParticipantRole } from "@/types/api";
 import type { ServerMessage } from "@/types/ws";
@@ -14,24 +17,35 @@ export interface RoomPerson {
   name: string;
   role: ParticipantRole;
   audio: boolean;
-  video: boolean;
+  video: boolean; // the camera
+  screen: boolean; // sharing the screen: their video is the screen, not the camera
   isMe: boolean;
-  stream: MediaStream | null; // their camera and mic; for us, only our camera
+  stream: MediaStream | null; // their video and mic; for us, only our video
 }
 
-/** Everything the room screen needs: who is here, the media, our own mic and camera, and Leave / End. */
+/**
+ * Everything the room screen needs: who is here, the media, our own mic,
+ * camera and screen share, the chat, host controls, and Leave / End.
+ */
 export function useMeetingRoom(code: string, session: JoinSession) {
   const router = useRouter();
+  const showToast = useToast();
   // The state we entered with. The socket connects once with these; later
   // changes are sent as messages instead of reconnecting.
   const [entry] = useState({ audio: session.audio_on, video: session.video_on });
   const media = useLocalMedia(entry);
+  const share = useScreenShare();
 
-  // Socket messages also go to the peer connections, which are set up just
-  // below because they need the socket's `send`. This runs only when a
-  // message arrives, by which time `peers` exists.
+  // Socket messages also go to the peer connections and the chat, which are
+  // set up just below because they need the socket's `send`. This runs only
+  // when a message arrives, by which time both exist.
   function handleSocketMessage(message: ServerMessage) {
     peers.handleMessage(message);
+    chat.handleMessage(message);
+    if (message.type === "force_mute") {
+      media.mute(); // the media_state effect below tells everyone
+      showToast("The host has muted you.");
+    }
   }
   const { status, others, send } = useMeetingSocket({
     code,
@@ -40,29 +54,34 @@ export function useMeetingRoom(code: string, session: JoinSession) {
     video: entry.video,
     onMessage: handleSocketMessage,
   });
-  const peers = usePeerConnections(send, media.audioTrack, media.videoTrack);
+  // While we share our screen, it goes out in place of the camera.
+  const outgoingVideo = share.screenTrack ?? media.videoTrack;
+  const peers = usePeerConnections(send, media.audioTrack, outgoingVideo);
+  const chat = useChat(send);
 
-  // Tell the others our mic and camera state, and save it so a refresh comes
-  // back the same. Also sent once connected, in case a device failed to open
-  // before the socket did.
+  // Tell the others our mic, camera and screen-share state, and save the mic
+  // and camera so a refresh comes back the same. Also sent once connected, in
+  // case a device failed to open before the socket did.
   useEffect(() => {
     if (status !== "live") return;
-    send({ type: "media_state", audio: media.audioOn, video: media.videoOn });
+    send({ type: "media_state", audio: media.audioOn, video: media.videoOn, screen: share.sharing });
     saveJoinSession(code, { ...session, audio_on: media.audioOn, video_on: media.videoOn });
-  }, [status, media.audioOn, media.videoOn, send, code, session]);
+  }, [status, media.audioOn, media.videoOn, share.sharing, send, code, session]);
 
   // Sent out of the meeting: let go of the camera, mic and connections.
   // The server refused our token: this tab isn't really in the meeting, so go and join properly.
   // Being ended or removed also makes the saved session useless.
   const { stop: stopMedia } = media;
+  const { stop: stopSharing } = share;
   const { closeAll } = peers;
   useEffect(() => {
     if (status === "connecting" || status === "live") return;
     stopMedia();
+    stopSharing();
     closeAll();
     if (status !== "lost") clearJoinSession(code);
     if (status === "invalid") router.replace(`/j/${code}`);
-  }, [status, code, router, stopMedia, closeAll]);
+  }, [status, code, router, stopMedia, stopSharing, closeAll]);
 
   const me: RoomPerson = {
     id: session.participant_id,
@@ -70,8 +89,9 @@ export function useMeetingRoom(code: string, session: JoinSession) {
     role: session.role,
     audio: media.audioOn,
     video: media.videoOn,
+    screen: share.sharing,
     isMe: true,
-    stream: media.preview,
+    stream: share.preview ?? media.preview,
   };
   const people = [
     me,
@@ -81,6 +101,7 @@ export function useMeetingRoom(code: string, session: JoinSession) {
       role: other.role,
       audio: other.audio,
       video: other.video,
+      screen: other.screen,
       isMe: false,
       stream: peers.streams.get(other.id) ?? null,
     })),
@@ -98,7 +119,16 @@ export function useMeetingRoom(code: string, session: JoinSession) {
     me,
     toggleAudio: media.toggleAudio,
     toggleVideo: media.toggleVideo,
+    sharing: share.sharing,
+    toggleShare: share.toggleShare,
+    chatMessages: chat.messages,
+    sendChat: chat.sendMessage,
     leave,
-    endForAll: () => send({ type: "host_end" }), // the server answers with meeting_ended
+    // Host controls. The server checks the role and answers with the effects:
+    // media_state from each muted person, participant_left, meeting_ended.
+    muteAll: () => send({ type: "host_mute_all" }),
+    mute: (participantId: number) => send({ type: "host_mute", participant_id: participantId }),
+    remove: (participantId: number) => send({ type: "host_remove", participant_id: participantId }),
+    endForAll: () => send({ type: "host_end" }),
   };
 }

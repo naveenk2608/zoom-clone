@@ -10,22 +10,26 @@ export type TilePlayback = {
 };
 
 /**
- * One person's tile: their camera when it's on. With the camera off it shows
- * Zoom's look instead: the host as an orange initial, an attendee as a large name.
+ * One person's tile: their camera when it's on, or the screen they share.
+ * With neither, it shows Zoom's look instead: the host as an orange initial,
+ * an attendee as a large name.
  */
 export function VideoTile({ person, playback }: { person: RoomPerson; playback: TilePlayback }) {
+  const showsVideo = person.video || person.screen;
+
   return (
     <div className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-room-tile">
       {person.stream !== null && (
         <TileVideo
           stream={person.stream}
           isMe={person.isMe}
-          visible={person.video}
+          isScreen={person.screen}
+          visible={showsVideo}
           playToken={playback.playToken}
           onAutoplayBlocked={playback.onAutoplayBlocked}
         />
       )}
-      {!person.video && <CameraOffLook person={person} />}
+      {!showsVideo && <CameraOffLook person={person} />}
       <div className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded bg-black/60 px-2 py-1 text-[15px] text-white">
         {!person.audio && <MicOff size={16} className="shrink-0 text-zoom-red" aria-label="Muted" />}
         <span className="truncate">{person.name}</span>

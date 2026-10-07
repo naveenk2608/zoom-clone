@@ -85,3 +85,30 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **One `replaceTrack` effect for every track change.** `usePeerConnections` swaps the current mic and camera tracks into every peer whenever they change. That covers camera on/off and devices that open after the offer went out, with no renegotiation.
 - **A fresh `MediaStream` per received track.** `ontrack` builds a new stream holding the tracks so far, so React sees a new value and the tile's effect re-sets `srcObject`.
 - **Refresh rejoin needs no extra code.** The refreshed tab is a newcomer: `welcome` lists the others and it offers to each. An existing peer that gets an offer from an id it already knows closes the old connection and answers on a new one.
+
+## Phase 7: bonus
+
+- **Host commands live in `realtime/host_actions.py`**, with "End meeting for all" moved there from `actions.py`. `ws.py` refuses them from anyone whose role isn't host, so each command can assume a host sent it.
+- **Mute is a request.** The server sends `force_mute`; the client mutes its own mic and reports `media_state` like any mute, so the person can unmute again, as in Zoom. People already muted, and other hosts, are skipped, so nobody sees the toast for nothing.
+- **Host commands only reach people connected to the host's own session.** A host can't touch another meeting's participant by guessing an id, and can't mute or remove themselves this way.
+- **Remove runs under the meeting lock.** The row becomes `removed` before the socket closes with 4003, so a refresh can't slip back in; `admit` already refuses removed tokens. With no accounts, the person can still join again from the pre-join page as a new guest.
+- **Remove asks first** with the existing `ConfirmDialog`. Mute and Mute All don't, because people can unmute themselves.
+- **A dark `RoomMenu`** wraps Radix's dropdown for the room: the row "…" menu and Host tools. The portal's white `Menu` is unchanged.
+- **Host tools opens a small menu**: Mute All, and Manage Participants (opens the panel). Zoom's other host tools (locking, waiting room) are out of scope.
+- **WebSocket test helpers moved to `tests/ws_helpers.py`**, shared by the presence, host-control and chat tests.
+- **`devIndicators: false` in `next.config.ts`.** Next's dev-only badge sits at the bottom left, on top of the room's Mute button.
+- **Chat is saved, then sent to everyone, the sender included.** The sender's own copy comes back from the server, so every message on screen has the id and time the database saved. Nothing is replayed: people who join (or refresh) later see only new messages, Zoom's default.
+- **Chat bodies are checked by the socket message model**: trimmed, 1–2000 characters, the same as the table's CHECK. A bad one gets an `error` and nothing is saved.
+- **Only "Everyone".** The "to:" pill is a label, not a menu, since private messages are out of scope. "Who can see your messages?" answers itself in a tooltip.
+- **Unread count on the Chat button.** The room remembers how many messages there were when the chat was last closed; newer ones show as a red badge.
+- **Enter sends, Shift+Enter adds a line.** Enter is left alone while an input method (Chinese, Japanese, …) is still composing.
+- **The red button reads "Leave" for attendees**, as in Zoom, since only the host can end the meeting. Its menu then offers only Leave Meeting.
+- **The toolbar collapses by its own width, not the screen's.** The footer is a CSS container (Tailwind's `@container`), and each button shows "always", "wide" or "narrow". A side panel open at 1024px used to push End off the toolbar; now the toolbar switches to the short set (Mute, Video, Participants, More, End or Leave), the same one a phone gets.
+- **When narrow, More is a real menu**: Chat (with the unread count), React, Share, and Mute All for the host. When wide, More stays a placeholder.
+- **Narrow toolbar buttons are 64px instead of 72px**, so the five fit on a 360px phone as well as 390px.
+- **Grid rows never get shorter than 8rem.** A crowded one-column grid on a phone scrolls instead of squeezing tiles into strips.
+- **The dashboard already stacks below `lg`.** A page-by-page check found no sideways scrolling at 390px or 360px.
+- **Screen share swaps the outgoing video track, nothing else.** The screen reaches every peer through the same `replaceTrack` effect as the camera, so nothing is renegotiated; stopping puts the camera track (or nothing) back. The camera keeps running meanwhile, so switching back is instant.
+- **`media_state` has a `screen` flag**, also sent in `welcome` and `participant_joined`. Other people's tiles need it: a screen is shown whole (`object-contain`), never mirrored, and even when that person's camera is off. A client that leaves the flag out counts as not sharing.
+- **The screen picker opens straight from the click.** `getDisplayMedia` only works during a user gesture (Safari is strict about this), so unlike the camera it isn't opened from an effect. Closing the picker is silent; phones, which can't share, get a notice.
+- **The browser's own "Stop sharing" button** ends the track; the hook listens for `ended` and switches back to the camera.

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ChatPanel } from "@/components/meeting/ChatPanel";
 import { MeetingStatusScreen } from "@/components/meeting/MeetingStatusScreen";
 import { ParticipantsPanel } from "@/components/meeting/ParticipantsPanel";
 import { RoomHeader } from "@/components/meeting/RoomHeader";
@@ -18,11 +19,16 @@ type MeetingRoomProps = {
   session: JoinSession;
 };
 
-/** The live room: header, tiles, toolbar, and the Participants panel on the right. */
+/** The live room: header, tiles, toolbar, and the Chat and Participants panels on the right. */
 export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
   const room = useMeetingRoom(code, session);
   const copyText = useCopyText();
   const [participantsOpen, setParticipantsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  // How many messages had arrived when the chat was last closed. The ones
+  // after that are unread, and counted on the Chat button.
+  const [seenCount, setSeenCount] = useState(0);
+  const unreadCount = chatOpen ? 0 : room.chatMessages.length - seenCount;
   const [endMenuOpen, setEndMenuOpen] = useState(false);
   // The browser refused to play sound before any click on the page (after a refresh, say).
   const [audioBlocked, setAudioBlocked] = useState(false);
@@ -33,6 +39,13 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
     setAudioBlocked(false);
     setPlayToken((token) => token + 1);
   }
+
+  function toggleChat() {
+    if (chatOpen) setSeenCount(room.chatMessages.length);
+    setChatOpen(!chatOpen);
+  }
+
+  const isHost = room.me.role === "host";
 
   switch (room.status) {
     case "ended":
@@ -54,7 +67,7 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
   return (
     <div className="flex h-screen bg-room-bg text-white">
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <RoomHeader meeting={meeting} isHost={room.me.role === "host"} />
+        <RoomHeader meeting={meeting} isHost={isHost} />
         {audioBlocked && (
           <button
             type="button"
@@ -72,23 +85,40 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
           me={room.me}
           participantCount={room.people.length}
           participantsOpen={participantsOpen}
+          chatOpen={chatOpen}
+          unreadCount={unreadCount}
+          sharing={room.sharing}
           endMenuOpen={endMenuOpen}
           onToggleAudio={room.toggleAudio}
           onToggleVideo={room.toggleVideo}
           onToggleParticipants={() => setParticipantsOpen((open) => !open)}
+          onOpenParticipants={() => setParticipantsOpen(true)}
+          onToggleChat={toggleChat}
+          onToggleShare={room.toggleShare}
+          onMuteAll={room.muteAll}
           onToggleEndMenu={() => setEndMenuOpen((open) => !open)}
           onLeave={room.leave}
           onEndForAll={room.endForAll}
         />
       </div>
-      {participantsOpen && (
+      {(chatOpen || participantsOpen) && (
         // Full screen on a phone; a column beside the tiles from `md` up.
-        <aside className="fixed inset-0 z-30 flex flex-col bg-room-bg p-2 md:static md:inset-auto md:w-100">
-          <ParticipantsPanel
-            people={room.people}
-            onInvite={() => copyText(meeting.invite_link, "Invite link copied")}
-            onClose={() => setParticipantsOpen(false)}
-          />
+        // With both open, Chat sits above Participants and they share the height.
+        <aside className="fixed inset-0 z-30 flex flex-col gap-2 bg-room-bg p-2 md:static md:inset-auto md:w-100">
+          {chatOpen && (
+            <ChatPanel messages={room.chatMessages} onSend={room.sendChat} onClose={toggleChat} />
+          )}
+          {participantsOpen && (
+            <ParticipantsPanel
+              people={room.people}
+              isHost={isHost}
+              onInvite={() => copyText(meeting.invite_link, "Invite link copied")}
+              onMuteAll={room.muteAll}
+              onMute={room.mute}
+              onRemove={room.remove}
+              onClose={() => setParticipantsOpen(false)}
+            />
+          )}
         </aside>
       )}
     </div>

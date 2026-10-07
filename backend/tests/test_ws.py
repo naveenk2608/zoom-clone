@@ -1,68 +1,23 @@
 """The meeting WebSocket: admission, presence, media flags, leaving and ending."""
 
-import asyncio
-from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from fastapi.websockets import WebSocketDisconnect
 from sqlalchemy.orm import Session
-from starlette.testclient import WebSocketTestSession
 
-from app.models import MeetingSession, Participant
+from app.models import Participant
 from app.realtime import actions
 from app.realtime.messages import CLOSE_ENDED, CLOSE_INVALID_TOKEN, CLOSE_REMOVED
-
-
-class Person:
-    """A participant created through the REST API, with what is needed to connect."""
-
-    def __init__(self, code: str, participant_id: int, token: str) -> None:
-        self.code = code
-        self.participant_id = participant_id
-        self.token = token
-
-    def url(self, audio: int, video: int) -> str:
-        return f"/ws/meetings/{self.code}?token={self.token}&audio={audio}&video={video}"
-
-
-def start_meeting(client: TestClient) -> Person:
-    joined = client.post("/api/meetings/instant").json()
-    return Person(
-        joined["meeting"]["meeting_code"], joined["participant"]["id"], joined["join_token"]
-    )
-
-
-def add_guest(client: TestClient, code: str, name: str = "Sam") -> Person:
-    joined = client.post(f"/api/meetings/{code}/join", json={"display_name": name}).json()
-    return Person(code, joined["participant"]["id"], joined["join_token"])
-
-
-@contextmanager
-def connect(
-    client: TestClient, person: Person, audio: int = 1, video: int = 1
-) -> Iterator[WebSocketTestSession]:
-    with client.websocket_connect(person.url(audio, video)) as socket:
-        yield socket
-
-
-def close_code(socket: WebSocketTestSession) -> int:
-    with pytest.raises(WebSocketDisconnect) as info:
-        socket.receive_json()
-    return info.value.code
-
-
-def wait(client: TestClient, seconds: float) -> None:
-    """Lets the server run for a while, on the same event loop as the sockets."""
-    assert client.portal is not None
-    client.portal.call(asyncio.sleep, seconds)
-
-
-def only_session(db: Session) -> MeetingSession:
-    db.expire_all()
-    return db.query(MeetingSession).one()
+from tests.ws_helpers import (
+    Person,
+    add_guest,
+    close_code,
+    connect,
+    only_session,
+    start_meeting,
+    wait,
+)
 
 
 def test_a_bad_token_is_closed_with_4001(live_client: TestClient) -> None:
@@ -99,6 +54,7 @@ def test_welcome_lists_the_others_and_the_others_hear_of_the_newcomer(
                 "role": "host",
                 "audio": False,
                 "video": True,
+                "screen": False,
             }
             assert guest_socket.receive_json()["participants"] == [host_entry]
             assert host_socket.receive_json() == {
@@ -109,6 +65,7 @@ def test_welcome_lists_the_others_and_the_others_hear_of_the_newcomer(
                     "role": "attendee",
                     "audio": True,
                     "video": False,
+                    "screen": False,
                 },
             }
 
@@ -129,7 +86,31 @@ def test_media_state_reaches_the_others(live_client: TestClient) -> None:
             "participant_id": guest.participant_id,
             "audio": False,
             "video": False,
+            "screen": False,  # left out by the sender, so not sharing
         }
+
+
+def test_screen_sharing_reaches_the_others_and_newcomers(live_client: TestClient) -> None:
+    host = start_meeting(live_client)
+    guest = add_guest(live_client, host.code)
+
+    with connect(live_client, host) as host_socket:
+        host_socket.receive_json()  # welcome
+        host_socket.send_json(
+            {"type": "media_state", "audio": True, "video": False, "screen": True}
+        )
+
+        with connect(live_client, guest) as guest_socket:
+            # The newcomer learns from welcome that the host is sharing.
+            (sharing_host,) = guest_socket.receive_json()["participants"]
+            assert sharing_host["screen"] is True
+            assert sharing_host["video"] is False
+            host_socket.receive_json()  # participant_joined
+
+            host_socket.send_json(
+                {"type": "media_state", "audio": True, "video": False, "screen": False}
+            )
+            assert guest_socket.receive_json()["screen"] is False
 
 
 def test_a_signal_reaches_only_the_participant_it_is_for(live_client: TestClient) -> None:

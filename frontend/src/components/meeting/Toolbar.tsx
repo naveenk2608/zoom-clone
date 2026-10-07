@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 
 import { EndMeetingMenu } from "@/components/meeting/EndMeetingMenu";
+import { MoreMenu } from "@/components/meeting/MoreMenu";
+import { RoomMenuItem } from "@/components/meeting/RoomMenu";
 import { ToolbarButton } from "@/components/meeting/ToolbarButton";
+import { ToolbarMenuButton } from "@/components/meeting/ToolbarMenuButton";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
 
 const RED_ICON = "text-zoom-red";
@@ -22,10 +25,17 @@ type ToolbarProps = {
   me: RoomPerson;
   participantCount: number;
   participantsOpen: boolean;
+  chatOpen: boolean;
+  unreadCount: number; // chat messages that arrived while the chat was closed
+  sharing: boolean; // we are sharing our screen
   endMenuOpen: boolean;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
   onToggleParticipants: () => void;
+  onOpenParticipants: () => void;
+  onToggleChat: () => void;
+  onToggleShare: () => void;
+  onMuteAll: () => void;
   onToggleEndMenu: () => void;
   onLeave: () => void;
   onEndForAll: () => void;
@@ -56,7 +66,8 @@ export function Toolbar(props: ToolbarProps) {
   }
 
   return (
-    <footer className="flex h-18 shrink-0 items-center justify-between bg-room-bar px-2">
+    // @container: the buttons below choose what to show from the toolbar's own width.
+    <footer className="@container flex h-18 shrink-0 items-center justify-between bg-room-bar px-2">
       <div className="flex">
         <ToolbarButton
           icon={me.audio ? Mic : MicOff}
@@ -83,13 +94,50 @@ export function Toolbar(props: ToolbarProps) {
           onClick={props.onToggleParticipants}
           caret
         />
-        <ToolbarButton icon={MessageSquare} label="Chat" caret hideOnSmall />
-        <ToolbarButton icon={Heart} label="React" hideOnSmall />
-        <ToolbarButton icon={ArrowUpFromLine} label="Share" caret hideOnSmall />
-        {me.role === "host" && <ToolbarButton icon={Shield} label="Host tools" hideOnSmall />}
-        <ToolbarButton icon={Ellipsis} label="More" />
+        <ToolbarButton
+          icon={MessageSquare}
+          label="Chat"
+          badge={props.unreadCount > 0 ? props.unreadCount : undefined}
+          alertBadge
+          active={props.chatOpen}
+          onClick={props.onToggleChat}
+          caret
+          show="wide"
+        />
+        <ToolbarButton icon={Heart} label="React" show="wide" />
+        <ToolbarButton
+          icon={ArrowUpFromLine}
+          label={props.sharing ? "Stop Share" : "Share"}
+          iconClassName={props.sharing ? RED_ICON : undefined}
+          active={props.sharing}
+          onClick={props.onToggleShare}
+          caret
+          show="wide"
+        />
+        {me.role === "host" && (
+          <ToolbarMenuButton icon={Shield} label="Host tools" show="wide">
+            <RoomMenuItem label="Mute All" onSelect={props.onMuteAll} />
+            <RoomMenuItem label="Manage Participants" onSelect={props.onOpenParticipants} />
+          </ToolbarMenuButton>
+        )}
+        {/* Wide, More is a placeholder; narrow, it holds the buttons hidden above. */}
+        <ToolbarButton icon={Ellipsis} label="More" show="wide" />
+        <MoreMenu
+          isHost={me.role === "host"}
+          unreadCount={props.unreadCount}
+          sharing={props.sharing}
+          onToggleChat={props.onToggleChat}
+          onToggleShare={props.onToggleShare}
+          onMuteAll={props.onMuteAll}
+        />
       </div>
-      <ToolbarButton icon={OctagonX} label="End" iconClassName={RED_ICON} onClick={onToggleEndMenu} />
+      {/* Only the host can end the meeting, so for everyone else it is Leave. */}
+      <ToolbarButton
+        icon={OctagonX}
+        label={me.role === "host" ? "End" : "Leave"}
+        iconClassName={RED_ICON}
+        onClick={onToggleEndMenu}
+      />
     </footer>
   );
 }

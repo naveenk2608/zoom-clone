@@ -96,6 +96,11 @@ export function useLocalMedia(entry: MediaEntry) {
     setAudioOn((on) => !on);
   }
 
+  /** The host muted us. Unmuting stays up to us. */
+  function mute() {
+    setAudioOn(false);
+  }
+
   function toggleVideo() {
     setVideoTrack(null); // the camera effect's cleanup stops it; never show a stopped track
     setVideoOn((on) => !on);
@@ -113,5 +118,5 @@ export function useLocalMedia(entry: MediaEntry) {
     [videoTrack],
   );
 
-  return { audioOn, videoOn, audioTrack, videoTrack, preview, toggleAudio, toggleVideo, stop };
+  return { audioOn, videoOn, audioTrack, videoTrack, preview, toggleAudio, toggleVideo, mute, stop };
 }

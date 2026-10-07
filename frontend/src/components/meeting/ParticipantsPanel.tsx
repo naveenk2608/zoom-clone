@@ -1,64 +1,63 @@
-import { Mic, MicOff, Video, VideoOff } from "lucide-react";
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 
-import { Avatar } from "@/components/layout/Avatar";
+import { ParticipantRow } from "@/components/meeting/ParticipantRow";
 import { RoomPanel } from "@/components/meeting/RoomPanel";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { NotAvailable } from "@/components/ui/Tooltip";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
 
 type ParticipantsPanelProps = {
   people: RoomPerson[];
+  isHost: boolean; // shows Mute All and each row's Mute / Remove menu
   onInvite: () => void; // copies the invite link
+  onMuteAll: () => void;
+  onMute: (participantId: number) => void;
+  onRemove: (participantId: number) => void;
   onClose: () => void;
 };
 
-/** "Participants (N)": one row per person, with Invite and More at the bottom. */
-export function ParticipantsPanel({ people, onInvite, onClose }: ParticipantsPanelProps) {
+/** "Participants (N)": one row per person, with Invite, Mute All and More at the bottom. */
+export function ParticipantsPanel(props: ParticipantsPanelProps) {
+  const { people, isHost, onRemove } = props;
+  // The person the "Remove?" dialog is asking about.
+  const [removing, setRemoving] = useState<RoomPerson | null>(null);
+
+  function confirmRemove() {
+    if (removing !== null) onRemove(removing.id);
+    setRemoving(null);
+  }
+
   return (
-    <RoomPanel title={`Participants (${people.length})`} onClose={onClose}>
+    <RoomPanel title={`Participants (${people.length})`} onClose={props.onClose}>
       <ul className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {people.map((person) => (
-          <ParticipantRow key={person.id} person={person} />
+          <ParticipantRow
+            key={person.id}
+            person={person}
+            canManage={isHost && !person.isMe}
+            onMute={() => props.onMute(person.id)}
+            onRemove={() => setRemoving(person)}
+          />
         ))}
       </ul>
       <div className="flex shrink-0 justify-center gap-3 px-4 py-3">
-        <FooterPill label="Invite" onClick={onInvite} />
+        <FooterPill label="Invite" onClick={props.onInvite} />
+        {isHost && <FooterPill label="Mute All" onClick={props.onMuteAll} />}
         <NotAvailable>
           <FooterPill label="More" />
         </NotAvailable>
       </div>
-    </RoomPanel>
-  );
-}
-
-/** "(Host, me)", "(Guest)" and so on, after the name. */
-function roleLabel(person: RoomPerson): string {
-  const role = person.role === "host" ? "Host" : "Guest";
-  return person.isMe ? `(${role}, me)` : `(${role})`;
-}
-
-function ParticipantRow({ person }: { person: RoomPerson }) {
-  return (
-    <li className="flex items-center gap-3 py-2">
-      <Avatar
-        name={person.name}
-        color="var(--color-avatar-orange)"
-        className="size-10 rounded-lg text-base"
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoving(null);
+        }}
+        title={`Remove ${removing?.name ?? ""}?`}
+        description="They will be sent out of the meeting."
+        confirmLabel="Remove"
+        onConfirm={confirmRemove}
       />
-      <span className="min-w-0 flex-1 truncate text-[15px]">
-        {person.name} <span className="text-white/60">{roleLabel(person)}</span>
-      </span>
-      {person.audio ? (
-        <Mic size={18} className="text-white/60" aria-label="Mic on" />
-      ) : (
-        <MicOff size={18} className="text-zoom-red" aria-label="Muted" />
-      )}
-      {person.video ? (
-        <Video size={18} className="text-white/60" aria-label="Camera on" />
-      ) : (
-        <VideoOff size={18} className="text-zoom-red" aria-label="Camera off" />
-      )}
-    </li>
+    </RoomPanel>
   );
 }
 

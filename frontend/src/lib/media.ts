@@ -1,4 +1,4 @@
-// Opening the camera, and turning getUserMedia's errors into messages people can act on.
+// Opening the camera, mic and screen, and turning their errors into messages people can act on.
 
 export type MediaDevice = "camera" | "microphone";
 
@@ -26,6 +26,15 @@ export function openMicrophone(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 }
 
+/** Asks which screen, window or tab to share. Rejects if the user cancels or it isn't supported. */
+export function openScreen(): Promise<MediaStream> {
+  // Phones' browsers have no getDisplayMedia.
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    return Promise.reject(new DOMException("Screen sharing is not supported", "NotSupportedError"));
+  }
+  return navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+}
+
 /** Mutes or unmutes a track. A disabled track keeps running but sends silence (or black). */
 export function setTrackEnabled(track: MediaStreamTrack, enabled: boolean): void {
   track.enabled = enabled;
@@ -51,5 +60,18 @@ export function mediaErrorMessage(error: unknown, device: MediaDevice): string {
       return `The ${device} only works on a secure (https) page.`;
     default:
       return `Couldn't start your ${device}.`;
+  }
+}
+
+/** A short notice for a failed screen share, or null when the user simply closed the picker. */
+export function screenShareErrorMessage(error: unknown): string | null {
+  const name = error instanceof DOMException ? error.name : "";
+  switch (name) {
+    case "NotAllowedError": // "Cancel" in the picker, or the browser said no
+      return null;
+    case "NotSupportedError":
+      return "Screen sharing isn't supported in this browser.";
+    default:
+      return "Couldn't start screen sharing.";
   }
 }

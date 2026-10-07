@@ -13,7 +13,11 @@ function columnClasses(count: number): string {
 
 export function VideoGrid({ people, playback }: { people: RoomPerson[]; playback: TilePlayback }) {
   return (
-    <div className={`grid min-h-0 flex-1 auto-rows-fr gap-2 overflow-y-auto p-2 ${columnClasses(people.length)}`}>
+    // Rows share the height, but never get shorter than 8rem: on a phone a
+    // crowded one-column grid scrolls instead of squeezing tiles into strips.
+    <div
+      className={`grid min-h-0 flex-1 auto-rows-[minmax(8rem,1fr)] gap-2 overflow-y-auto p-2 ${columnClasses(people.length)}`}
+    >
       {people.map((person) => (
         <VideoTile key={person.id} person={person} playback={playback} />
       ))}

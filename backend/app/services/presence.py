@@ -62,6 +62,15 @@ def mark_left(db: Session, participant_id: int) -> None:
         db.commit()
 
 
+def mark_removed(db: Session, participant_id: int) -> None:
+    """The host removed them. `admit` refuses removed participants, so their token stops working."""
+    participant = db.get(Participant, participant_id)
+    if participant is not None:
+        participant.status = "removed"
+        participant.left_at = utc_now()
+        db.commit()
+
+
 def end_live_session(db: Session, session_id: int) -> None:
     """Ends the session and marks everyone in it as left. Safe to call twice."""
     session = db.get(MeetingSession, session_id)

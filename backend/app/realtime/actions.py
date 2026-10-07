@@ -1,4 +1,6 @@
-"""What happens when someone joins, leaves or ends a meeting over the WebSocket.
+"""What happens when someone joins or leaves a meeting over the WebSocket.
+
+The host's commands, such as ending the meeting, are in host_actions.py.
 
 Each step takes the meeting's lock, so a reconnect cannot race a leave, the
 grace timer or "End meeting for all". Database calls are synchronous, so they
@@ -13,11 +15,11 @@ from starlette.concurrency import run_in_threadpool
 
 from app.realtime.connection_manager import Connection, ConnectionManager
 from app.realtime.messages import (
-    CLOSE_ENDED,
     CLOSE_INVALID_TOKEN,
+    ChatOut,
+    ChatSender,
     ErrorOut,
     MediaStateOut,
-    MeetingEnded,
     ParticipantJoined,
     ParticipantLeft,
     SelfOut,
@@ -25,7 +27,7 @@ from app.realtime.messages import (
     SignalOut,
     Welcome,
 )
-from app.services import presence
+from app.services import chat, presence
 
 # When the last connection drops (a refresh, or lost network), wait this long
 # for someone to come back before ending the session.
@@ -49,6 +51,11 @@ def mark_left(factory: SessionFactory, participant_id: int) -> None:
 def end_session(factory: SessionFactory, session_id: int) -> None:
     with factory() as db:
         presence.end_live_session(db, session_id)
+
+
+def save_chat(factory: SessionFactory, participant_id: int, body: str) -> chat.SavedChatMessage:
+    with factory() as db:
+        return chat.save_message(db, participant_id, body)
 
 
 async def enter(
@@ -87,15 +94,21 @@ async def enter(
         return connection
 
 
-async def relay_media_state(connection: Connection, audio: bool, video: bool) -> None:
+async def relay_media_state(
+    connection: Connection, audio: bool, video: bool, screen: bool
+) -> None:
     connection.audio = audio
     connection.video = video
+    connection.screen = screen
     await manager.broadcast(manager.others(connection), media_state_message(connection))
 
 
 def media_state_message(connection: Connection) -> MediaStateOut:
     return MediaStateOut(
-        participant_id=connection.participant_id, audio=connection.audio, video=connection.video
+        participant_id=connection.participant_id,
+        audio=connection.audio,
+        video=connection.video,
+        screen=connection.screen,
     )
 
 
@@ -108,6 +121,17 @@ async def relay_signal(connection: Connection, to: int, data: SignalData) -> Non
     target = manager.find(connection.session_id, to)
     if target is not None:
         await manager.send(target, SignalOut(from_=connection.participant_id, data=data))
+
+
+async def send_chat(factory: SessionFactory, connection: Connection, body: str) -> None:
+    """Saves a chat message and sends it to everyone in the session, the sender included.
+
+    The sender's own copy carries the saved id and time, like everyone else's.
+    """
+    saved = await run_in_threadpool(save_chat, factory, connection.participant_id, body)
+    sender = ChatSender(id=connection.participant_id, display_name=connection.display_name)
+    message = ChatOut(id=saved.id, from_=sender, body=body, sent_at=saved.sent_at)
+    await manager.broadcast(manager.everyone(connection.session_id), message)
 
 
 async def reject(connection: Connection, message: str) -> None:
@@ -145,14 +169,3 @@ async def end_after_grace(factory: SessionFactory, code: str, session_id: int) -
         manager.forget_grace(session_id)
         if manager.is_empty(session_id):  # nobody came back
             await run_in_threadpool(end_session, factory, session_id)
-
-
-async def end_for_all(factory: SessionFactory, host: Connection) -> None:
-    """The host ends the meeting: everyone is told, then disconnected."""
-    async with manager.lock(host.meeting_code):
-        await run_in_threadpool(end_session, factory, host.session_id)
-        manager.cancel_grace(host.session_id)
-        everyone = manager.take_all(host.session_id)
-        await manager.broadcast(everyone, MeetingEnded())
-        for connection in everyone:
-            await manager.close(connection, CLOSE_ENDED)
