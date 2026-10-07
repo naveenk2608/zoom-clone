@@ -101,8 +101,10 @@ class ConnectionManager:
     async def close(self, connection: Connection, code: int) -> None:
         try:
             await connection.websocket.close(code=code)
-        except RuntimeError:
-            pass  # already closed
+        except (RuntimeError, WebSocketDisconnect):
+            # Already closed, or the browser is gone (Starlette raises
+            # WebSocketDisconnect then). Either way there is nothing to close.
+            pass
 
     async def close_all(self, connections: list[Connection], code: int) -> None:
         """Closes several sockets at the same time.

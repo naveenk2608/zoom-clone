@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from fastapi.websockets import WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.models import Participant
@@ -283,6 +284,29 @@ def test_reconnecting_inside_the_grace_period_keeps_the_meeting(
         assert participant.status == "in_meeting"
         assert participant.left_at is None
         assert only_session(db).ended_at is None
+
+
+def test_a_refresh_works_when_the_old_socket_is_already_gone(
+    live_client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    host = start_meeting(live_client)
+
+    with connect(live_client, host) as old_socket:
+        old_socket.receive_json()  # welcome
+        old = actions.manager.find(only_session(db).id, host.participant_id)
+        assert old is not None
+
+        # The browser dropped the old page before the server noticed, so
+        # closing that socket fails the way Starlette reports a lost peer.
+        async def already_gone(code: int = 1000, reason: str | None = None) -> None:
+            raise WebSocketDisconnect(code=1006)
+
+        monkeypatch.setattr(old.websocket, "close", already_gone)
+
+        with connect(live_client, host) as new_socket:  # the refreshed page
+            assert new_socket.receive_json()["type"] == "welcome"
+            new_socket.send_json({"type": "chat", "body": "still here"})
+            assert new_socket.receive_json()["body"] == "still here"  # the connection survived
 
 
 def test_a_removed_participant_cannot_reconnect(live_client: TestClient, db: Session) -> None:
