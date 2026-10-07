@@ -1,15 +1,9 @@
-import { VideoTile, type TilePlayback } from "@/components/meeting/VideoTile";
-import type { RoomPerson } from "@/hooks/useMeetingRoom";
+import { useRef } from "react";
 
-/**
- * An equal-size gallery: one person fills the area, two sit side by side,
- * three or four make 2x2, five to nine make 3x3. On narrow screens it is one column.
- */
-function columnClasses(count: number): string {
-  if (count <= 1) return "grid-cols-1";
-  if (count <= 4) return "grid-cols-1 md:grid-cols-2";
-  return "grid-cols-1 md:grid-cols-3";
-}
+import { VideoTile, type TilePlayback } from "@/components/meeting/VideoTile";
+import { useElementSize } from "@/hooks/useElementSize";
+import type { RoomPerson } from "@/hooks/useMeetingRoom";
+import { TILE_GAP, bestGrid, rowWidth } from "@/lib/tileLayout";
 
 type VideoGridProps = {
   people: RoomPerson[];
@@ -17,21 +11,36 @@ type VideoGridProps = {
   speakingId: number | null; // who gets the green border
 };
 
+/**
+ * Gallery view: equal 16:9 tiles, as large as the area allows. The column
+ * count is picked from the measured area, and the grid is centred, with a
+ * short last row centred too, as in Zoom.
+ */
 export function VideoGrid({ people, playback, speakingId }: VideoGridProps) {
+  const areaRef = useRef<HTMLDivElement>(null);
+  const area = useElementSize(areaRef);
+  const layout = bestGrid(people.length, area.width, area.height);
+  const tile = { width: layout.width, height: layout.height };
+
   return (
-    // Rows share the height, but never get shorter than 8rem: on a phone a
-    // crowded one-column grid scrolls instead of squeezing tiles into strips.
-    <div
-      className={`grid min-h-0 flex-1 auto-rows-[minmax(8rem,1fr)] gap-2 overflow-y-auto p-2 ${columnClasses(people.length)}`}
-    >
-      {people.map((person) => (
-        <VideoTile
-          key={person.id}
-          person={person}
-          playback={playback}
-          speaking={person.id === speakingId}
-        />
-      ))}
+    <div ref={areaRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+      {area.width > 0 && (
+        <div
+          className="flex flex-wrap justify-center"
+          style={{ width: rowWidth(layout), gap: TILE_GAP }}
+        >
+          {people.map((person) => (
+            <div key={person.id} className="grid shrink-0" style={tile}>
+              <VideoTile
+                person={person}
+                playback={playback}
+                variant="gallery"
+                speaking={person.id === speakingId}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,9 @@
+import { useRef } from "react";
+
 import { VideoTile, type TilePlayback } from "@/components/meeting/VideoTile";
+import { useElementSize } from "@/hooks/useElementSize";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
+import { TILE_GAP, fitAspect, stripTileSize } from "@/lib/tileLayout";
 
 type SpeakerViewProps = {
   people: RoomPerson[]; // always starts with us
@@ -9,34 +13,55 @@ type SpeakerViewProps = {
 };
 
 /**
- * Zoom's default view: one person large, everyone else in a strip of small
- * 16:9 tiles above. The strip stays one row and scrolls sideways when full.
+ * Zoom's default view: one person in the largest 16:9 box that fits, centred
+ * with black around it, and everyone else in a row of small 16:9 tiles just
+ * above. The row scrolls sideways when it doesn't fit.
  */
 export function SpeakerView({ people, playback, speakerId, speakingId }: SpeakerViewProps) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const stage = useElementSize(stageRef);
   const main = mainPerson(people, speakerId);
   const strip = people.filter((person) => person.id !== main.id);
 
+  const stripTile = stripTileSize(stage.width);
+  const stripHeight = strip.length > 0 ? stripTile.height + TILE_GAP : 0;
+  const mainBox = fitAspect(stage.width, stage.height - stripHeight);
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
-      {strip.length > 0 && (
-        // `justify-center-safe` centres the strip, but starts it at the left
+    <div
+      ref={stageRef}
+      className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden"
+      style={{ gap: TILE_GAP }}
+    >
+      {stage.width > 0 && strip.length > 0 && (
+        // `justify-center-safe` centres the row, but starts it at the left
         // edge once it overflows, so the first tiles can still be scrolled to.
-        <div className="flex shrink-0 justify-center-safe gap-2 overflow-x-auto">
+        <div
+          className="flex max-w-full shrink-0 justify-center-safe overflow-x-auto"
+          style={{ gap: TILE_GAP }}
+        >
           {strip.map((person) => (
-            <div key={person.id} className="grid aspect-video h-20 shrink-0 md:h-32">
+            <div key={person.id} className="grid shrink-0" style={stripTile}>
               <VideoTile
                 person={person}
                 playback={playback}
-                compact
+                variant="strip"
                 speaking={person.id === speakingId}
               />
             </div>
           ))}
         </div>
       )}
-      <div className="grid min-h-0 flex-1">
-        <VideoTile person={main} playback={playback} speaking={main.id === speakingId} />
-      </div>
+      {stage.width > 0 && (
+        <div className="grid shrink-0" style={mainBox}>
+          <VideoTile
+            person={main}
+            playback={playback}
+            variant="main"
+            speaking={main.id === speakingId}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -10,10 +10,18 @@ export type TilePlayback = {
   onAutoplayBlocked: () => void;
 };
 
+/**
+ * Where the tile is shown. The parent sizes it; this picks the details:
+ * - "main": Speaker view's big video. Square corners, whole picture shown.
+ * - "strip": a small tile above it. Compact name chip, picture fills the tile.
+ * - "gallery": an equal tile in Gallery view. Whole picture shown.
+ */
+export type TileVariant = "main" | "strip" | "gallery";
+
 type VideoTileProps = {
   person: RoomPerson;
   playback: TilePlayback;
-  compact?: boolean; // a small tile in Speaker view's strip
+  variant: TileVariant;
   speaking?: boolean; // the active speaker: a green border, as in Zoom
 };
 
@@ -22,16 +30,26 @@ type VideoTileProps = {
  * With neither, it shows Zoom's look instead: the host as an orange initial,
  * an attendee as a large name.
  */
-export function VideoTile({ person, playback, compact = false, speaking = false }: VideoTileProps) {
+export function VideoTile({ person, playback, variant, speaking = false }: VideoTileProps) {
   const showsVideo = person.video || person.screen;
+  const compact = variant === "strip";
+  const corners = variant === "main" ? "rounded-none" : "rounded-lg";
+  // A shared screen is always shown whole, so none of it is cut off.
+  const fit = compact && !person.screen ? "cover" : "contain";
 
   return (
-    <div className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-room-tile">
+    <div
+      className={clsx(
+        "relative flex min-h-0 items-center justify-center overflow-hidden bg-room-tile",
+        corners,
+      )}
+    >
       {person.stream !== null && (
         <TileVideo
           stream={person.stream}
           isMe={person.isMe}
           isScreen={person.screen}
+          fit={fit}
           visible={showsVideo}
           playToken={playback.playToken}
           onAutoplayBlocked={playback.onAutoplayBlocked}
@@ -55,7 +73,7 @@ export function VideoTile({ person, playback, compact = false, speaking = false 
         // Drawn over the video, and inside the tile, so the layout never moves.
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-lg border-2 border-zoom-green"
+          className={clsx("pointer-events-none absolute inset-0 border-2 border-zoom-green", corners)}
         />
       )}
     </div>

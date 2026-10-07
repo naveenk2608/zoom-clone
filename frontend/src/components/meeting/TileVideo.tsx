@@ -4,7 +4,9 @@ import { useEffect, useEffectEvent, useRef } from "react";
 type TileVideoProps = {
   stream: MediaStream;
   isMe: boolean; // our own tile: muted, so we never hear ourselves, and mirrored like a mirror
-  isScreen: boolean; // a shared screen: shown whole and never mirrored, so its text reads right
+  isScreen: boolean; // a shared screen: never mirrored, so its text reads right
+  // "contain" shows the whole picture with black bars; "cover" fills the tile and crops.
+  fit: "contain" | "cover";
   visible: boolean; // false while the camera is off; it keeps playing so their audio is heard
   playToken: number; // changes when the user clicks "Click to enable audio", to try again
   onAutoplayBlocked: () => void;
@@ -15,6 +17,7 @@ export function TileVideo({
   stream,
   isMe,
   isScreen,
+  fit,
   visible,
   playToken,
   onAutoplayBlocked,
@@ -41,7 +44,7 @@ export function TileVideo({
       muted={isMe}
       className={clsx(
         "absolute inset-0 size-full",
-        isScreen ? "object-contain" : "object-cover",
+        fit === "contain" ? "object-contain" : "object-cover",
         isMe && !isScreen && "-scale-x-100",
         !visible && "opacity-0",
       )}
