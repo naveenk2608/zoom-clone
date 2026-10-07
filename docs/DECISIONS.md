@@ -61,7 +61,7 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **A camera failure never blocks joining.** `useCameraPreview` turns the camera off and the preview shows why (blocked, missing, busy); Join then saves `video_on: false`.
 - **The preview and the room each open the camera.** The light blinks once on the way in, which is simpler than handing a live stream from one page to the next.
 - **A meeting nobody can join never asks for the camera.** Invalid, cancelled and ended meetings show their message and "Back to home" without rendering the preview.
-- **The code is checked before any request.** `/j/upcoming` would otherwise call `GET /api/meetings/upcoming`, which is a real path, so `isMeetingCode` rejects anything that isn't 11 digits first.
+- **The code is checked before any request.** `/j/upcoming` would otherwise call `GET /api/meetings/upcoming`, which is a real path, so `isMeetingCode` rejects anything that isn't 11 digits first. The Edit page (`/schedule/{code}`) does the same.
 - **Back goes to Home.** An invite link opened in a new tab has no history to go back to.
 - **The Remember box shows whether a name is stored.** It starts ticked when one is, ticking it saves the name on Join, and unticking it forgets the name.
 - **The name follows /me until you type.** The field shows the remembered name, then the signed-in user's, and switches to what you type once you change it, so a slow `/me` still fills it in.
