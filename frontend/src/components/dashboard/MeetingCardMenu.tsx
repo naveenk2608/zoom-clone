@@ -7,35 +7,22 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
-import { useToast } from "@/components/ui/Toast";
-import { cancelMeeting, errorMessage } from "@/lib/api";
 import type { MeetingOut } from "@/types/api";
 
 type MeetingCardMenuProps = {
   meeting: MeetingOut;
-  onDeleted: () => void;
+  onDelete: (meeting: MeetingOut) => void;
 };
 
 /** The "…" menu on a scheduled meeting's card: Edit and Delete. */
-export function MeetingCardMenu({ meeting, onDeleted }: MeetingCardMenuProps) {
+export function MeetingCardMenu({ meeting, onDelete }: MeetingCardMenuProps) {
   const router = useRouter();
-  const showToast = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const isLive = meeting.status === "live"; // the server refuses to delete a running meeting
 
-  async function deleteMeeting() {
-    setDeleting(true);
-    try {
-      await cancelMeeting(meeting.meeting_code);
-      setConfirmOpen(false);
-      showToast("Meeting deleted");
-      onDeleted();
-    } catch (error) {
-      showToast(errorMessage(error));
-    } finally {
-      setDeleting(false);
-    }
+  function confirmDelete() {
+    setConfirmOpen(false);
+    onDelete(meeting); // the card disappears now; the list brings it back if the request fails
   }
 
   return (
@@ -68,8 +55,7 @@ export function MeetingCardMenu({ meeting, onDeleted }: MeetingCardMenuProps) {
         title="Delete this meeting?"
         description={`"${meeting.title}" will be removed from your upcoming meetings.`}
         confirmLabel="Delete"
-        onConfirm={deleteMeeting}
-        pending={deleting}
+        onConfirm={confirmDelete}
       />
     </>
   );

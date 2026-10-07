@@ -46,6 +46,7 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **The description goes into the Copy Invitation text**, so the field is used as well as saved.
 - **Native date input and selects.** They come with keyboard and screen-reader support, and the date field shows the browser's own calendar picker, like Zoom's.
 - **The meeting card menu is non-modal** (`modal={false}`). A modal menu closing while the delete dialog opens can leave the page unclickable.
+- **Delete is optimistic.** `useDeleteMeeting` keeps a set of deleted codes and the list hides them, so the card goes at once. If the request fails the code is dropped from the set and the card returns to its old place, since the loaded list was never changed.
 - **Meetings is highlighted in the sidebar on the Schedule pages**, as in Zoom. It links to Home, where the meetings list lives in this demo.
 - **The Join box checks the meeting before leaving the page.** `parseMeetingInput` accepts an ID with spaces or dashes, or any URL containing `/j/<11 digits>`. Then `GET /meetings/{code}` turns unknown, cancelled and ended meetings into an inline error instead of a dead end on the next page.
 - **Join error messages match the backend's wording** (`lib/meetingStatus.ts`), so a meeting reads "has ended" the same way whether the browser or the server found it.

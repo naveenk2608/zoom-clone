@@ -1,6 +1,9 @@
+"use client";
+
 import { ListError, ListLoading } from "@/components/dashboard/ListStatus";
 import { MeetingCard } from "@/components/dashboard/MeetingCard";
 import { Card } from "@/components/ui/Card";
+import { useDeleteMeeting } from "@/hooks/useDeleteMeeting";
 import type { Resource } from "@/hooks/useResource";
 import { groupUpcoming } from "@/lib/datetime";
 import type { MeetingOut } from "@/types/api";
@@ -8,7 +11,6 @@ import type { MeetingOut } from "@/types/api";
 type UpcomingMeetingsProps = {
   resource: Resource<MeetingOut[]>;
   onRetry: () => void;
-  onChanged: () => void; // a meeting was deleted, so the list must reload
 };
 
 /** The right-hand card on Home: the user's live and scheduled meetings, by day. */
@@ -23,18 +25,23 @@ export function UpcomingMeetings(props: UpcomingMeetingsProps) {
   );
 }
 
-function UpcomingList({ resource, onRetry, onChanged }: UpcomingMeetingsProps) {
+function UpcomingList({ resource, onRetry }: UpcomingMeetingsProps) {
+  const { removedCodes, deleteMeeting } = useDeleteMeeting();
+
   if (resource.status === "loading") {
     return <ListLoading />;
   }
   if (resource.status === "error") {
     return <ListError message={resource.message} onRetry={onRetry} />;
   }
-  if (resource.data.length === 0) {
+
+  // Deleted meetings disappear at once, before the server has answered.
+  const meetings = resource.data.filter((meeting) => !removedCodes.has(meeting.meeting_code));
+  if (meetings.length === 0) {
     return <p className="py-8 text-center text-text-secondary">No upcoming meetings</p>;
   }
 
-  const groups = groupUpcoming(resource.data, new Date());
+  const groups = groupUpcoming(meetings, new Date());
   return (
     <div className="flex flex-col gap-6">
       {groups.map((group) => (
@@ -43,7 +50,7 @@ function UpcomingList({ resource, onRetry, onChanged }: UpcomingMeetingsProps) {
           <ul className="mt-4 flex flex-col gap-4">
             {group.meetings.map((meeting) => (
               <li key={meeting.meeting_code}>
-                <MeetingCard meeting={meeting} onDeleted={onChanged} />
+                <MeetingCard meeting={meeting} onDelete={deleteMeeting} />
               </li>
             ))}
           </ul>

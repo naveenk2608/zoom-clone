@@ -11,7 +11,6 @@ type ConfirmDialogProps = {
   description: string;
   confirmLabel: string;
   onConfirm: () => void;
-  pending?: boolean; // disables the confirm button while the request runs
 };
 
 /** A modal "are you sure?" box. Radix traps focus inside and closes it on Escape. */
@@ -22,7 +21,6 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   onConfirm,
-  pending = false,
 }: ConfirmDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -37,7 +35,7 @@ export function ConfirmDialog({
             <Dialog.Close asChild>
               <Button variant="neutral">Cancel</Button>
             </Dialog.Close>
-            <Button variant="danger" onClick={onConfirm} disabled={pending}>
+            <Button variant="danger" onClick={onConfirm}>
               {confirmLabel}
             </Button>
           </div>

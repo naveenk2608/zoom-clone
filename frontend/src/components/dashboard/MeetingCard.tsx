@@ -13,11 +13,11 @@ import type { MeetingOut } from "@/types/api";
 
 type MeetingCardProps = {
   meeting: MeetingOut;
-  onDeleted: () => void;
+  onDelete: (meeting: MeetingOut) => void;
 };
 
 /** One meeting in the Upcoming list. */
-export function MeetingCard({ meeting, onDeleted }: MeetingCardProps) {
+export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
   const showToast = useToast();
   const { pending, startScheduledMeeting } = useStartMeeting();
   const isLive = meeting.status === "live";
@@ -60,7 +60,7 @@ export function MeetingCard({ meeting, onDeleted }: MeetingCardProps) {
         {/* Instant meetings can't be edited, and a live one can't be deleted. */}
         {meeting.meeting_type === "scheduled" && (
           <div className="ml-auto">
-            <MeetingCardMenu meeting={meeting} onDeleted={onDeleted} />
+            <MeetingCardMenu meeting={meeting} onDelete={onDelete} />
           </div>
         )}
       </div>
