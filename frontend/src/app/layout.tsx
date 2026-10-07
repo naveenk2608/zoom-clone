@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
 import { CurrentUserProvider } from "@/components/layout/CurrentUserProvider";
@@ -13,6 +13,14 @@ const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-int
 export const metadata: Metadata = {
   title: "Zoom Clone",
   description: "A clone of the Zoom web app, built with Next.js and FastAPI.",
+};
+
+// "cover" lets the page reach under a phone's notch and home bar. The room
+// keeps its controls clear of them with env(safe-area-inset-*) padding.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

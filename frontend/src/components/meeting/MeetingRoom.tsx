@@ -91,7 +91,11 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
   }
 
   return (
-    <div className="flex h-screen bg-room-bg text-white">
+    // h-dvh: the height a phone shows right now, browser bars included (h-screen is
+    // the height with them hidden, which pushed the toolbar below the screen).
+    // The page itself never scrolls; the panels scroll inside. The padding keeps
+    // the room clear of a notch; the toolbar pads itself for the home bar.
+    <div className="flex h-dvh overflow-hidden bg-room-bg pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] text-white">
       <div className="relative flex min-w-0 flex-1 flex-col">
         <RoomHeader meeting={meeting} isHost={isHost} view={view} onViewChange={setView} />
         {audioBlocked && (
@@ -147,7 +151,7 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
       {(chatOpen || participantsOpen) && (
         // Full screen on a phone; a column beside the tiles from `md` up.
         // With both open, Chat sits above Participants and they share the height.
-        <aside className="fixed inset-0 z-30 flex flex-col gap-2 bg-room-bg p-2 md:static md:inset-auto md:w-100">
+        <aside className="fixed inset-0 z-30 flex flex-col gap-2 bg-room-bg p-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] md:static md:inset-auto md:w-100">
           {chatOpen && (
             <ChatPanel messages={room.chatMessages} onSend={room.sendChat} onClose={toggleChat} />
           )}

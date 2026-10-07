@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import {
   ArrowUpFromLine,
   Ellipsis,
@@ -24,6 +25,11 @@ import type { RoomPerson } from "@/hooks/useMeetingRoom";
 import type { PermissionChange, Permissions, Reaction } from "@/types/ws";
 
 const RED_ICON = "text-zoom-red";
+
+// The toolbar is 72px tall plus, on a phone with a home bar, the space the
+// bar needs below it. box-content adds the padding to the height instead of
+// taking it from the buttons.
+const HOME_BAR_SAFE = "box-content h-18 pb-[env(safe-area-inset-bottom)]";
 
 // The same words as the server's error, should it refuse anyway.
 const NO_UNMUTE = "The host has disabled unmuting for participants";
@@ -60,7 +66,9 @@ export function Toolbar(props: ToolbarProps) {
 
   if (endMenuOpen) {
     return (
-      <footer className="relative flex h-18 shrink-0 items-center justify-end bg-room-bar px-3">
+      <footer
+        className={clsx("relative flex shrink-0 items-center justify-end bg-room-bar px-3", HOME_BAR_SAFE)}
+      >
         <EndMeetingMenu
           isHost={me.role === "host"}
           onEndForAll={props.onEndForAll}
@@ -95,7 +103,9 @@ export function Toolbar(props: ToolbarProps) {
 
   return (
     // @container: the buttons below choose what to show from the toolbar's own width.
-    <footer className="@container flex h-18 shrink-0 items-center justify-between bg-room-bar px-2">
+    <footer
+      className={clsx("@container flex shrink-0 items-center justify-between bg-room-bar px-2", HOME_BAR_SAFE)}
+    >
       <div className="flex">
         <ToolbarButton
           icon={me.audio ? Mic : MicOff}

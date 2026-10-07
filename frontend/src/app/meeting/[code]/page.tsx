@@ -58,7 +58,7 @@ export default function MeetingRoomPage() {
   }
   if (entry === null) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-room-bg text-white/70">
+      <main className="flex h-dvh items-center justify-center bg-room-bg text-white/70">
         Joining…
       </main>
     );

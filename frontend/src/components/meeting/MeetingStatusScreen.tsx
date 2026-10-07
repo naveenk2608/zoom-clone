@@ -14,7 +14,8 @@ export function MeetingStatusScreen({ message, onRejoin }: MeetingStatusScreenPr
   const router = useRouter();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-5 bg-room-bg px-4 text-center text-white">
+    // min-h-dvh: centred in the height a phone shows now, browser bars included.
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-room-bg px-4 text-center text-white">
       <p role="alert" className="max-w-md text-xl font-semibold">
         {message}
       </p>

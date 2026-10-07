@@ -17,7 +17,8 @@ export default function PreJoinPage() {
   const { code } = useParams<{ code: string }>();
 
   return (
-    <main className="min-h-screen px-4 pt-9 pb-16 md:px-11">
+    // min-h-dvh, not min-h-screen: a phone's browser bars count, so nothing hides behind them.
+    <main className="min-h-dvh px-4 pt-9 pb-16 md:px-11">
       {/* Home, not history.back(): an invite link opened in a new tab has no page to go back to. */}
       <Link
         href="/"
