@@ -79,6 +79,8 @@ export function VideoTile({
         )}
         {person.pinned && <Pin size={compact ? 12 : 16} className="shrink-0" aria-label="Pinned" />}
         <span className="truncate">{person.name}</span>
+        {/* Outside the truncated name, so a long name never hides it. */}
+        {person.role === "host" && <span className="shrink-0">(Host)</span>}
       </div>
       {speaking && (
         // Drawn over the video, and inside the tile, so the layout never moves.
