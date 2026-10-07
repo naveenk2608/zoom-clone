@@ -15,7 +15,7 @@ A video meetings web app modelled on Zoom's web portal and meeting room. You can
 1. Open the app. You are signed in as the demo user, **Alex Morgan**, and the dashboard shows seeded upcoming and recent meetings.
 2. Click **New meeting**. You land in the meeting room as the host.
 3. Click the **ⓘ** icon at the top left, copy the invite link and open it in an **incognito window** (or on another device). Enter a name and click **Join**. Each browser tab acts as a separate person.
-4. Try mic and camera, **Chat**, **Share** (desktop browsers), switching between Speaker and Gallery view with the grid icon at the top right, and the host controls: **Host tools → Mute All**, the **…** menu on a row in **Participants** (Mute, Remove), and **End → End Meeting for All**.
+4. Try mic and camera (the **^** next to Mute and Video picks the microphone, speaker and camera), **Chat**, **React** (emoji and Raise Hand), **Share** (desktop browsers), switching between Speaker and Gallery view with the grid icon at the top right, pinning someone from the **…** on their video, and the host controls: **Host tools → Mute All**, the **…** menu on a row in **Participants** (Mute or Ask to Unmute, Lower Hand, Remove), and **End → End Meeting for All**.
 5. Back on Home, click **Schedule**, fill in the form and save. The meeting appears under Upcoming meetings. Ended meetings appear under Recent meetings.
 
 ## Features
@@ -36,16 +36,21 @@ A video meetings web app modelled on Zoom's web portal and meeting room. You can
 - Live audio and video between browsers over WebRTC, with Zoom's two layouts:
   - **Speaker view** (the default) shows the active speaker large, outlined in green while they talk, and everyone else in a row of small tiles just above.
   - **Gallery view** shows everyone in an equal grid.
-  - Every tile keeps a 16:9 shape. Tiles have a mirrored self view, name labels and muted-mic indicators. With the camera off, the host's tile shows their initial and a guest's tile shows their name.
+  - Every tile keeps a 16:9 shape. Tiles have a mirrored self view, name labels with "(Host)" after the host's name, and muted-mic indicators. With the camera off, the host's tile shows their initial and a guest's tile shows their name.
+  - **Pin:** hovering over someone's video shows a **…** button with Pin and Unpin. The pinned person takes the large tile in Speaker view on your screen only, with a pin icon on their name label. Pinning from Gallery view switches to Speaker view, and the pin is cleared if that person leaves.
+- **Audio and video menus:** the **^** next to Mute lists your microphones and, in browsers that can switch audio output (`setSinkId`), your speakers. The **^** next to Video lists your cameras. The device in use is ticked, and the lists update when a device is plugged in or out. Switching keeps you muted or your camera off if it was.
+- **Reactions and Raise Hand:** React opens Zoom's palette (👏 👍 ❤️ 😂 😮 🎉 and Raise Hand). A reaction shows in the top-left corner of the sender's video for everyone for about 10 seconds. A raised hand shows ✋ on the person's video and in the Participants panel, where raised hands are listed first, until it is lowered.
 - A live participants list, a meeting info popover (invite link with a copy button, meeting ID, host), Leave, and End Meeting for All.
 - Refreshing the page rejoins the meeting. If the connection drops, the room offers Rejoin.
 
 ### Bonus features
 
-- **Host controls:** Mute All, mute one participant, and remove a participant. A muted person can unmute themselves, as in Zoom. A removed person is disconnected, and their join token is refused from then on, so refreshing the page doesn't bring them back.
+- **Host controls:** Mute All, mute one participant, ask a muted participant to unmute, lower someone's raised hand, and remove a participant.
+  - A muted person can unmute themselves, as in Zoom. The host can never turn someone's mic on: Ask to Unmute shows that person "The host would like you to unmute", with Unmute and Stay Muted.
+  - A removed person is disconnected, and their join token is refused from then on, so refreshing the page doesn't bring them back.
 - **Chat** inside the meeting, saved to the database.
 - **Screen sharing** in desktop browsers.
-- **Responsive design:** the dashboard stacks on small screens, the meeting toolbar moves less-used buttons into More when space is short, and the side panels go full screen on phones.
+- **Responsive design:** the dashboard stacks on small screens, the meeting toolbar moves less-used buttons into More when space is short (with the reactions palette at the top of More, and no **^** device menus), and the side panels go full screen on phones.
 
 ## Tech stack
 
@@ -75,9 +80,9 @@ flowchart LR
 - **Media never passes through the server.** Every pair of browsers connects directly (a mesh); the server only relays the messages that set those connections up.
 - **SQLite is the record; memory is the present.** The database stores meetings, each run of a meeting, attendance and chat. Who is connected right now lives in an in-memory connection manager.
 
-**Backend layout.** Routers only parse the request and return a response. Business rules live in `services/`, which raise small domain errors (`NotFound`, `Gone`, `Conflict`, …) that one exception handler turns into `{"detail": "..."}` with the right status code. Pydantic schemas define every request and response, and `realtime/` holds the WebSocket endpoint, its message types and the connection manager.
+**Backend layout.** Routers only parse the request and return a response. Business rules live in `services/`, which raise small domain errors (`NotFound`, `Gone`, `Conflict`, …) that one exception handler turns into `{"detail": "..."}` with the right status code. Pydantic schemas define every request and response. `realtime/` holds the WebSocket endpoint, its message types (`messages.py` for what clients send, `server_messages.py` for what the server sends), the connection manager, host commands, and reactions and raised hands.
 
-**Frontend layout.** Components only display what they are given. Meeting logic lives in hooks: `useMeetingRoom` combines `useLocalMedia` (mic and camera), `useMeetingSocket`, `usePeerConnections` (WebRTC), `useChat` and `useScreenShare`, and `useActiveSpeaker` measures each remote microphone's level with the Web Audio API to pick who is speaking. Shared helpers (meeting code parsing, dates and time zones, invitation text, WebRTC setup) live in `lib/`, and `types/` mirrors the backend's API and WebSocket shapes exactly.
+**Frontend layout.** Components only display what they are given. Meeting logic lives in hooks: `useMeetingRoom` combines `useLocalMedia` (mic and camera, and which ones), `useMediaDevices` (the device lists), `useMeetingSocket`, `usePeerConnections` (WebRTC), `useChat`, `useReactions` and `useScreenShare`, and `useActiveSpeaker` measures each remote microphone's level with the Web Audio API to pick who is speaking. Shared helpers (meeting code parsing, dates and time zones, invitation text, WebRTC setup) live in `lib/`, and `types/` mirrors the backend's API and WebSocket shapes exactly.
 
 ## Database design
 
@@ -206,24 +211,30 @@ Every message is JSON with a `type` field.
 | `media_state` | You change your mic, camera or screen share |
 | `signal` | A WebRTC offer, answer or ICE candidate for one other participant (`to`) |
 | `chat` | You send a chat message |
+| `reaction` | You pick a reaction (`emoji`). Only 👏 👍 ❤️ 😂 😮 🎉 are accepted. |
+| `raise_hand` | You raise your hand |
+| `lower_hand` | You lower your hand. With a `participant_id`, the host lowers that person's hand; anyone else gets an error. |
 | `leave` | You click Leave Meeting |
-| `host_mute_all`, `host_mute`, `host_remove`, `host_end` | Host controls. The server rejects them from anyone who isn't the host. |
+| `host_mute_all`, `host_mute`, `host_ask_unmute`, `host_remove`, `host_end` | Host controls (each one-person command takes a `participant_id`). The server rejects them from anyone who isn't the host. |
 
 **Server to client**
 
 | Type | Meaning |
 |---|---|
-| `welcome` | You're in: your own details and everyone already in the meeting |
-| `participant_joined`, `participant_left` | Someone arrived or left |
+| `welcome` | You're in: your own details and everyone already in the meeting, with their mic, camera, screen share and `hand_raised` |
+| `participant_joined`, `participant_left` | Someone arrived (with the same details) or left |
 | `media_state` | Someone's mic, camera or screen share changed |
 | `signal` | A WebRTC message from another participant (`from`) |
 | `chat` | A chat message, with its saved ID and time |
+| `reaction` | Someone (`participant_id`) reacted with `emoji`. Sent to everyone, the sender included. |
+| `hand` | Someone's hand was raised or lowered (`participant_id`, `raised`). Sent to everyone, the sender included. |
 | `force_mute` | The host asked you to mute; your app mutes your mic |
+| `ask_unmute` | The host would like you to unmute; your app asks you, and only your answer can turn the mic on |
 | `removed` | The host removed you; the socket then closes with 4003 |
 | `meeting_ended` | The host ended the meeting; the socket then closes with 4010 |
 | `error` | A message was refused, with the reason |
 
-**How video is set up.** When someone joins, they send a WebRTC offer to each person listed in `welcome`, and those people only answer. Having only the newcomer make offers means two people never send offers to each other at the same time. ICE candidates that arrive before the connection is ready are queued and added afterwards. Before the room connects, the browser loads its ICE servers from `/api/ice-servers`: Google's STUN, plus a TURN relay for networks where a direct connection fails. The TURN password is a short-lived HMAC of the username (the standard TURN REST scheme), so the shared secret stays on the server. If that request fails, STUN alone is used. Adding `?relay=1` to a room's URL forces every connection through TURN, which tests the relay from one computer. Muting only disables the mic track. Turning the camera on or off and screen sharing swap the video track with `replaceTrack`. So connections never need to be renegotiated.
+**How video is set up.** When someone joins, they send a WebRTC offer to each person listed in `welcome`, and those people only answer. Having only the newcomer make offers means two people never send offers to each other at the same time. ICE candidates that arrive before the connection is ready are queued and added afterwards. Before the room connects, the browser loads its ICE servers from `/api/ice-servers`: Google's STUN, plus a TURN relay for networks where a direct connection fails. The TURN password is a short-lived HMAC of the username (the standard TURN REST scheme), so the shared secret stays on the server. If that request fails, STUN alone is used. Adding `?relay=1` to a room's URL forces every connection through TURN, which tests the relay from one computer. Muting only disables the mic track. Turning the camera on or off, switching to another microphone or camera, and screen sharing all swap a track with `replaceTrack`. So connections never need to be renegotiated.
 
 ## Meeting lifecycle
 
@@ -250,7 +261,8 @@ backend/
     schemas/           Pydantic request and response models
     services/          business rules: meeting codes, lifecycle, dashboard, presence, chat
     routers/           REST endpoints (health, users, meetings)
-    realtime/          WebSocket endpoint, message types, connection manager, host commands
+    realtime/          WebSocket endpoint, message types, connection manager, host commands,
+                       reactions and raised hands
     seed.py            demo data (with seed_time.py and seed_rows.py)
   tests/               pytest suite
 frontend/
@@ -258,7 +270,7 @@ frontend/
     app/               routes: / (Home), /join, /schedule, /schedule/[code] (edit),
                        /j/[code] (invite link and pre-join), /meeting/[code] (room)
     components/        ui/, layout/, dashboard/, schedule/, join/, prejoin/, meeting/
-    hooks/             data loading, media, socket, WebRTC, chat, screen share
+    hooks/             data loading, media and devices, socket, WebRTC, chat, reactions, screen share
     lib/               API client, config, meeting codes, dates and time zones, WebRTC helpers
     types/             API and WebSocket types, mirroring the backend
 docs/DECISIONS.md      design decisions, recorded phase by phase
@@ -304,7 +316,7 @@ cd frontend && npm run lint        # ESLint
 cd frontend && npm run build       # production build, including the TypeScript type check
 ```
 
-The backend tests use a temporary SQLite database per test. They cover meeting codes, schedule validation (past start times, unknown time zones, duration limits), join rules (unknown, cancelled and ended meetings, host and guest roles, two people joining at the same moment), the Upcoming and Recent lists, cancelling, the seed data, and the WebSocket: joining, leaving, reconnecting, ending the meeting, host controls and chat.
+The backend tests use a temporary SQLite database per test. They cover meeting codes, schedule validation (past start times, unknown time zones, duration limits), join rules (unknown, cancelled and ended meetings, host and guest roles, two people joining at the same moment), the Upcoming and Recent lists, cancelling, the seed data, and the WebSocket: joining, leaving, reconnecting, ending the meeting, host controls (including Ask to Unmute), chat, reactions and raised hands.
 
 ## Environment variables
 
@@ -362,7 +374,8 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 - **Default duration is one hour.** Zoom's 40-minute limit on free accounts is out of scope.
 - **If the host leaves without ending the meeting,** it carries on without a host. Zoom would ask the host to hand over the role first.
 - **Chat history isn't replayed.** People who join later see only new messages, which is Zoom's default.
-- **Out of scope:** recurring meetings, waiting rooms, passcodes, Personal Meeting IDs, recording, breakout rooms, reactions and device selection. Buttons for these features show "Not available in this demo".
+- **Pins, reactions and hands are live only.** A pin exists only on the screen of the person who made it. Reactions and raised hands aren't saved, and reconnecting lowers your hand, as rejoining does in Zoom. Device choices aren't remembered after a refresh.
+- **Out of scope:** recurring meetings, waiting rooms, passcodes, Personal Meeting IDs, recording and breakout rooms. Buttons for these features show "Not available in this demo".
 
 ## Known limitations
 
@@ -379,4 +392,4 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 - Real sign-up and login, replacing the default-user dependency.
 - A media server (SFU) for larger meetings, and a dedicated TURN server for stricter networks.
 - PostgreSQL with Alembic migrations, and Redis so the backend can run as several instances.
-- Recurring meetings, a waiting room, passcodes and reactions.
+- Recurring meetings, a waiting room and passcodes.

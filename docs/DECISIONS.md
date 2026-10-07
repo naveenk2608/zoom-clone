@@ -119,3 +119,28 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **Tiles are sized in code, not stretched by CSS.** A ResizeObserver measures the stage. Speaker view's main video is the largest 16:9 box that fits under the strip. Gallery view tries every column count and keeps the one with the biggest 16:9 tiles. The math lives in `lib/tileLayout.ts`. Main and gallery videos show the whole picture (object-contain); strip tiles fill theirs (object-cover).
 - **TURN credentials come from the backend.** `GET /api/ice-servers` returns STUN plus a TURN relay, with a password of base64(HMAC-SHA1(secret, "<expiry>:zoomclone")), valid for 24 hours, so the secret never reaches the browser. The room loads this list with the meeting, before the socket opens, so no peer connection is made without it. If the request fails, it falls back to STUN. `?relay=1` forces `iceTransportPolicy: "relay"` for testing.
 - **Metered's Open Relay didn't grant relays when tested.** `staticauth.openrelay.metered.ca` refused TCP connections and `openrelay.metered.ca` answered allocations with a 400 error. The host and secret are settings, so a working TURN server can be swapped in without code changes.
+
+## More Zoom room features
+
+- **Device menus reuse the camera-switch path.** Picking a mic or camera reopens it with an `exact` deviceId, and the existing `replaceTrack` effect in `usePeerConnections` swaps it into every peer, so there is no renegotiation. This replaces the Phase 4 plan of placeholder ^ menus.
+- **Muted and camera-off survive a switch.** The mute effect re-applies `enabled` to the new mic track. With the camera off, a picked camera is only remembered and is used when Video starts.
+- **The device list is read again on `devicechange` and whenever our mic or camera opens.** Browsers hide device names and ids until a device has been allowed. Entries without an id are dropped.
+- **The ticked device:** the one picked, else the one the open track reports, else the first listed (the browser's default). Choices aren't saved, so a refresh goes back to the defaults.
+- **Speaker choice is `setSinkId` on each remote tile's `<video>`**, passed down with the playback settings. The section is shown only where `HTMLMediaElement.setSinkId` exists. Our own tile is muted, so it's left alone.
+- **The ^ menus show only on a wide toolbar**, like the other carets; a phone keeps the five-button toolbar.
+- **Pin is local state in `useMeetingRoom`.** It is cleared on `participant_left` rather than hidden while that person is away, so someone who reconnects with the same id isn't pinned again. Only other people can be pinned.
+- **Main-tile order:** someone else's shared screen, then the pinned person, then the active speaker. A shared screen still wins over a pin, as in Zoom. Pinning from Gallery switches to Speaker view.
+- **The tile's … button is CSS-only on hover** (`group-hover`), and also shows on keyboard focus and while its menu is open.
+- **"(Host)" on the tile is its own span**, outside the truncated name, so a long name never hides it.
+- **The WebSocket messages are split by direction:** `messages.py` (client to server, close codes) and `server_messages.py` (server to client). One file was heading past 200 lines.
+- **Reactions are a Pydantic `Literal` of the six emoji.** Anything else gets the usual "not understood" error. The heart is two code points (U+2764 U+FE0F), so both sides use the same literal.
+- **Reactions and hands go to everyone, the sender included**, like chat. So the sender's own tile shows exactly what the others see, and the host lowering your hand reaches you the same way.
+- **A reaction shows for 10 s.** A newer one from the same person replaces it, and each timer only removes its own reaction. Nothing is saved.
+- **A raised hand is part of the live connection**, like the mic and camera flags. `PersonOut` carries `hand_raised`, so `welcome` and `participant_joined` include it. Raising twice or lowering a lowered hand sends nothing.
+- **Reconnecting lowers the hand**, as rejoining does in Zoom. A refresh that replaces a live socket tells the others the hand went down; a refresh after the old socket closed is a fresh join anyway.
+- **`lower_hand` isn't host-only**, because anyone can lower their own. With someone else's `participant_id`, the server checks that the sender is the host and looks the person up in the host's own session.
+- **Our own hand lives in `useReactions`**, set from `hand` messages about us; other people's hands are updated in `lib/roomState.ts` with their media state.
+- **Raised hands are listed first** with a stable sort. Zoom orders them by when they were raised; that would need a timestamp per hand.
+- **The React palette is a Radix menu** (`ToolbarMenuButton`), so picking a reaction closes it, as in Zoom, and arrow keys work. The same items sit at the top of More on a narrow toolbar.
+- **Ask to Unmute is only a request.** The server sends `ask_unmute` to that one person, and only if they are muted. Their own Unmute click turns the mic on, and the usual `media_state` tells everyone. The host's row menu shows Mute or Ask to Unmute depending on the person's mic.
+- **The unmute dialog reuses `ConfirmDialog`**, which now takes a cancel label and a primary button style. Escape and the backdrop count as Stay Muted.
