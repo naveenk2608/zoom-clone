@@ -189,6 +189,7 @@ All paths are under `/api`. Errors use `{"detail": "..."}` with a message the UI
 | DELETE | `/api/meetings/{code}` | Cancel (soft delete) a meeting | 204; 403 if not the host; 409 while it is live |
 | POST | `/api/meetings/{code}/start` | The host starts the meeting, or rejoins it | 403 if not the host; 410 if cancelled, or an instant meeting that has ended |
 | POST | `/api/meetings/{code}/join` | Join as a guest with a display name | 404 if unknown; 410 if cancelled, or an instant meeting that has ended |
+| GET | `/api/ice-servers` | STUN and TURN servers for the browsers' peer connections | TURN credentials valid for 24 hours |
 
 ## WebSocket protocol
 
@@ -222,7 +223,7 @@ Every message is JSON with a `type` field.
 | `meeting_ended` | The host ended the meeting; the socket then closes with 4010 |
 | `error` | A message was refused, with the reason |
 
-**How video is set up.** When someone joins, they send a WebRTC offer to each person listed in `welcome`, and those people only answer. Having only the newcomer make offers means two people never send offers to each other at the same time. ICE candidates that arrive before the connection is ready are queued and added afterwards. Muting only disables the mic track. Turning the camera on or off and screen sharing swap the video track with `replaceTrack`. So connections never need to be renegotiated.
+**How video is set up.** When someone joins, they send a WebRTC offer to each person listed in `welcome`, and those people only answer. Having only the newcomer make offers means two people never send offers to each other at the same time. ICE candidates that arrive before the connection is ready are queued and added afterwards. Before the room connects, the browser loads its ICE servers from `/api/ice-servers`: Google's STUN, plus a TURN relay for networks where a direct connection fails. The TURN password is a short-lived HMAC of the username (the standard TURN REST scheme), so the shared secret stays on the server. If that request fails, STUN alone is used. Adding `?relay=1` to a room's URL forces every connection through TURN, which tests the relay from one computer. Muting only disables the mic track. Turning the camera on or off and screen sharing swap the video track with `replaceTrack`. So connections never need to be renegotiated.
 
 ## Meeting lifecycle
 
@@ -314,6 +315,8 @@ The backend tests use a temporary SQLite database per test. They cover meeting c
 | `DATABASE_URL` | `sqlite:///./zoom_clone.db` | Database location |
 | `FRONTEND_BASE_URL` | `http://localhost:3000` | Used to build invite links (`<this>/j/<meeting id>`) |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated list of origins allowed to call the API |
+| `TURN_HOST` | `staticauth.openrelay.metered.ca` | TURN relay host, offered on ports 80 and 443 |
+| `TURN_SECRET` | `openrelayprojectsecret` | Shared secret the TURN server uses to check the short-lived credentials |
 
 **Frontend** (`frontend/.env.local`)
 
@@ -364,7 +367,7 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 ## Known limitations
 
 - **Small meetings.** In a mesh, every browser sends its video to every other browser, so this works best for about 2–4 people. Larger meetings would need a media server (an SFU such as mediasoup or LiveKit).
-- **Restrictive networks.** By default only a public STUN server is used. Some networks (strict corporate firewalls, some mobile carriers) block direct connections and need a TURN server, which can be added through the optional environment variables.
+- **Restrictive networks.** Some networks (strict corporate firewalls, carrier NAT on mobile data) block direct connections, so calls there need a working TURN relay. The defaults point at Metered's free Open Relay, a shared service with no guarantees. When last tested it didn't grant relays, so for calls between different networks, set `TURN_HOST` and `TURN_SECRET` to a TURN server you control, such as coturn with `use-auth-secret`. A TURN server with a fixed username and password can also be added on the frontend through the `NEXT_PUBLIC_TURN_*` variables.
 - **One backend instance.** Who is connected lives in the server's memory, so the backend can't run as several instances without shared state such as Redis pub/sub.
 - **Demo data resets.** Render's free tier doesn't keep files between restarts, so the SQLite database resets whenever the server restarts or sleeps, and the demo data is seeded again.
 - **Screen sharing is desktop only.** Mobile browsers don't allow websites to capture the screen; phones show a notice instead.
@@ -374,6 +377,6 @@ Production must use HTTPS and WSS end to end. Browsers block mixed content, and 
 ## Possible next steps
 
 - Real sign-up and login, replacing the default-user dependency.
-- A media server (SFU) and a TURN server for larger meetings and stricter networks.
+- A media server (SFU) for larger meetings, and a dedicated TURN server for stricter networks.
 - PostgreSQL with Alembic migrations, and Redis so the backend can run as several instances.
 - Recurring meetings, a waiting room, passcodes and reactions.
