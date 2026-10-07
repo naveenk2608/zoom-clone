@@ -10,6 +10,7 @@ type SpeakerViewProps = {
   playback: TilePlayback;
   speakerId: number | null; // the last person heard, from useActiveSpeaker
   speakingId: number | null; // who gets the green border: the speaker, while still talking
+  onTogglePin: (person: RoomPerson) => void;
 };
 
 /**
@@ -17,7 +18,13 @@ type SpeakerViewProps = {
  * with black around it, and everyone else in a row of small 16:9 tiles just
  * above. The row scrolls sideways when it doesn't fit.
  */
-export function SpeakerView({ people, playback, speakerId, speakingId }: SpeakerViewProps) {
+export function SpeakerView({
+  people,
+  playback,
+  speakerId,
+  speakingId,
+  onTogglePin,
+}: SpeakerViewProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const stage = useElementSize(stageRef);
   const main = mainPerson(people, speakerId);
@@ -47,6 +54,7 @@ export function SpeakerView({ people, playback, speakerId, speakingId }: Speaker
                 playback={playback}
                 variant="strip"
                 speaking={person.id === speakingId}
+                onTogglePin={onTogglePin}
               />
             </div>
           ))}
@@ -59,6 +67,7 @@ export function SpeakerView({ people, playback, speakerId, speakingId }: Speaker
             playback={playback}
             variant="main"
             speaking={main.id === speakingId}
+            onTogglePin={onTogglePin}
           />
         </div>
       )}
@@ -68,13 +77,15 @@ export function SpeakerView({ people, playback, speakerId, speakingId }: Speaker
 
 /**
  * Who fills the main area, in order: someone else sharing their screen, the
- * active speaker, the first other participant, or us when we are alone.
- * Our own shared screen isn't put there: it would show the room inside itself.
+ * person we pinned, the active speaker, the first other participant, or us
+ * when we are alone. Our own shared screen isn't put there: it would show the
+ * room inside itself.
  */
 function mainPerson(people: RoomPerson[], speakerId: number | null): RoomPerson {
   const others = people.filter((person) => !person.isMe);
   return (
     others.find((person) => person.screen) ??
+    others.find((person) => person.pinned) ??
     others.find((person) => person.id === speakerId) ??
     others[0] ??
     people[0]

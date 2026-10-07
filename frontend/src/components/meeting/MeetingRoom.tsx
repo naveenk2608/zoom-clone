@@ -12,7 +12,7 @@ import { VideoGrid } from "@/components/meeting/VideoGrid";
 import type { RoomView } from "@/components/meeting/ViewMenu";
 import { useActiveSpeaker } from "@/hooks/useActiveSpeaker";
 import { useCopyText } from "@/hooks/useCopyText";
-import { useMeetingRoom } from "@/hooks/useMeetingRoom";
+import { useMeetingRoom, type RoomPerson } from "@/hooks/useMeetingRoom";
 import type { JoinSession } from "@/lib/joinSession";
 import type { MeetingOut } from "@/types/api";
 
@@ -50,6 +50,17 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
   function toggleChat() {
     if (chatOpen) setSeenCount(room.chatMessages.length);
     setChatOpen(!chatOpen);
+  }
+
+  // Pinning puts the person in Speaker view's main tile, so from Gallery view
+  // it switches to Speaker view, as in Zoom.
+  function togglePin(person: RoomPerson) {
+    if (person.pinned) {
+      room.pin(null);
+      return;
+    }
+    room.pin(person.id);
+    setView("speaker");
   }
 
   const isHost = room.me.role === "host";
@@ -95,9 +106,15 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
             playback={playback}
             speakerId={speakerId}
             speakingId={speakingId}
+            onTogglePin={togglePin}
           />
         ) : (
-          <VideoGrid people={room.people} playback={playback} speakingId={speakingId} />
+          <VideoGrid
+            people={room.people}
+            playback={playback}
+            speakingId={speakingId}
+            onTogglePin={togglePin}
+          />
         )}
         <Toolbar
           me={room.me}

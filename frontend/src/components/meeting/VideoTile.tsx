@@ -1,7 +1,8 @@
 import clsx from "clsx";
-import { MicOff } from "lucide-react";
+import { MicOff, Pin } from "lucide-react";
 
 import { Avatar } from "@/components/layout/Avatar";
+import { TileMenu } from "@/components/meeting/TileMenu";
 import { TileVideo } from "@/components/meeting/TileVideo";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
 
@@ -24,14 +25,21 @@ type VideoTileProps = {
   playback: TilePlayback;
   variant: TileVariant;
   speaking?: boolean; // the active speaker: a green border, as in Zoom
+  onTogglePin: (person: RoomPerson) => void; // from the tile's "…" menu
 };
 
 /**
  * One person's tile: their camera when it's on, or the screen they share.
  * With neither, it shows Zoom's look instead: the host as an orange initial,
- * an attendee as a large name.
+ * an attendee as a large name. Another person's tile has a "…" menu to pin them.
  */
-export function VideoTile({ person, playback, variant, speaking = false }: VideoTileProps) {
+export function VideoTile({
+  person,
+  playback,
+  variant,
+  speaking = false,
+  onTogglePin,
+}: VideoTileProps) {
   const showsVideo = person.video || person.screen;
   const compact = variant === "strip";
   const corners = variant === "main" ? "rounded-none" : "rounded-lg";
@@ -41,7 +49,7 @@ export function VideoTile({ person, playback, variant, speaking = false }: Video
   return (
     <div
       className={clsx(
-        "relative flex min-h-0 items-center justify-center overflow-hidden bg-room-tile",
+        "group relative flex min-h-0 items-center justify-center overflow-hidden bg-room-tile",
         corners,
       )}
     >
@@ -69,6 +77,7 @@ export function VideoTile({ person, playback, variant, speaking = false }: Video
         {!person.audio && (
           <MicOff size={compact ? 12 : 16} className="shrink-0 text-zoom-red" aria-label="Muted" />
         )}
+        {person.pinned && <Pin size={compact ? 12 : 16} className="shrink-0" aria-label="Pinned" />}
         <span className="truncate">{person.name}</span>
       </div>
       {speaking && (
@@ -76,6 +85,14 @@ export function VideoTile({ person, playback, variant, speaking = false }: Video
         <div
           aria-hidden="true"
           className={clsx("pointer-events-none absolute inset-0 border-2 border-zoom-green", corners)}
+        />
+      )}
+      {!person.isMe && (
+        <TileMenu
+          name={person.name}
+          pinned={person.pinned}
+          compact={compact}
+          onTogglePin={() => onTogglePin(person)}
         />
       )}
     </div>

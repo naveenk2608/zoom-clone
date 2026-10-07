@@ -21,6 +21,7 @@ export interface RoomPerson {
   video: boolean; // the camera
   screen: boolean; // sharing the screen: their video is the screen, not the camera
   isMe: boolean;
+  pinned: boolean; // we pinned them to the main tile; only on our screen
   stream: MediaStream | null; // their video and mic; for us, only our video
 }
 
@@ -49,6 +50,8 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     speaker: { devices: deviceLists.speakers, selectedId: speakerId, choose: setSpeakerId },
     camera: { devices: deviceLists.cameras, selectedId: media.cameraId, choose: media.chooseCamera },
   };
+  // Who we pinned to the main tile, or null. Nobody else sees it.
+  const [pinnedId, setPinnedId] = useState<number | null>(null);
 
   // Socket messages also go to the peer connections and the chat, which are
   // set up just below because they need the socket's `send`. This runs only
@@ -59,6 +62,10 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     if (message.type === "force_mute") {
       media.mute(); // the media_state effect below tells everyone
       showToast("The host has muted you.");
+    }
+    if (message.type === "participant_left") {
+      // The pinned person left: unpin, so they aren't pinned again if they come back.
+      setPinnedId((current) => (current === message.participant_id ? null : current));
     }
   }
   const { status, others, send } = useMeetingSocket({
@@ -105,6 +112,7 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     video: media.videoOn,
     screen: share.sharing,
     isMe: true,
+    pinned: false, // only other people can be pinned
     stream: share.preview ?? media.preview,
   };
   const people = [
@@ -117,6 +125,7 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
       video: other.video,
       screen: other.screen,
       isMe: false,
+      pinned: other.id === pinnedId,
       stream: peers.streams.get(other.id) ?? null,
     })),
   ];
@@ -135,6 +144,7 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     toggleVideo: media.toggleVideo,
     devices,
     speakerId,
+    pin: setPinnedId, // null unpins
     sharing: share.sharing,
     toggleShare: share.toggleShare,
     chatMessages: chat.messages,

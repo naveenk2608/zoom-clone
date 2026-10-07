@@ -9,6 +9,7 @@ type VideoGridProps = {
   people: RoomPerson[];
   playback: TilePlayback;
   speakingId: number | null; // who gets the green border
+  onTogglePin: (person: RoomPerson) => void;
 };
 
 /**
@@ -16,7 +17,7 @@ type VideoGridProps = {
  * count is picked from the measured area, and the grid is centred, with a
  * short last row centred too, as in Zoom.
  */
-export function VideoGrid({ people, playback, speakingId }: VideoGridProps) {
+export function VideoGrid({ people, playback, speakingId, onTogglePin }: VideoGridProps) {
   const areaRef = useRef<HTMLDivElement>(null);
   const area = useElementSize(areaRef);
   const layout = bestGrid(people.length, area.width, area.height);
@@ -36,6 +37,7 @@ export function VideoGrid({ people, playback, speakingId }: VideoGridProps) {
                 playback={playback}
                 variant="gallery"
                 speaking={person.id === speakingId}
+                onTogglePin={onTogglePin}
               />
             </div>
           ))}
