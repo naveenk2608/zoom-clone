@@ -79,3 +79,10 @@ export interface JoinOut {
   participant: ParticipantOut;
   join_token: string; // sent with the WebSocket connection to prove who this is
 }
+
+/** One STUN or TURN server, from GET /api/ice-servers. Fits RTCPeerConnection's `iceServers`. */
+export interface IceServerOut {
+  urls: string[];
+  username?: string; // TURN only: "<expiry unix time>:zoomclone", valid for 24 hours
+  credential?: string; // TURN only
+}

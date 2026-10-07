@@ -1,6 +1,7 @@
 // Building blocks for the mesh: one RTCPeerConnection per other participant.
 // Media goes straight between browsers; the server only relays the signaling.
 
+import { getIceServers } from "@/lib/api";
 import { TURN_CREDENTIAL, TURN_URL, TURN_USERNAME } from "@/lib/config";
 
 /** Our own mic and camera tracks. Null when that device is off or unavailable. */
@@ -15,17 +16,42 @@ export interface Peer {
   pending: RTCIceCandidateInit[];
 }
 
-/** Google's public STUN server, plus a TURN server when one is configured. */
-function iceServers(): RTCIceServer[] {
-  const servers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-  if (TURN_URL) {
-    servers.push({ urls: TURN_URL, username: TURN_USERNAME, credential: TURN_CREDENTIAL });
-  }
-  return servers;
+/** Google's public STUN server alone: used when the backend's list can't be loaded. */
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+
+/** A TURN server from the NEXT_PUBLIC_TURN_* variables, when this build has one. */
+function configuredTurnServers(): RTCIceServer[] {
+  if (!TURN_URL) return [];
+  return [{ urls: TURN_URL, username: TURN_USERNAME, credential: TURN_CREDENTIAL }];
 }
 
-export function newPeer(): Peer {
-  return { pc: new RTCPeerConnection({ iceServers: iceServers() }), pending: [] };
+/**
+ * The settings for every peer connection in the room, loaded once before it opens.
+ *
+ * The servers come from the backend: STUN, plus a TURN relay with fresh
+ * credentials for networks where a direct connection fails (carrier NAT,
+ * strict firewalls). If that request fails, STUN alone is used. A TURN server
+ * from the build's environment is added either way.
+ *
+ * Debug switch: with ?relay=1 in the room's URL, every connection must go
+ * through TURN, so the relay can be tested between two tabs on one computer.
+ */
+export async function loadRtcConfig(): Promise<RTCConfiguration> {
+  let servers: RTCIceServer[];
+  try {
+    servers = await getIceServers();
+  } catch {
+    servers = FALLBACK_ICE_SERVERS;
+  }
+  const relayOnly = new URLSearchParams(window.location.search).get("relay") === "1";
+  return {
+    iceServers: [...servers, ...configuredTurnServers()],
+    iceTransportPolicy: relayOnly ? "relay" : "all",
+  };
+}
+
+export function newPeer(config: RTCConfiguration): Peer {
+  return { pc: new RTCPeerConnection(config), pending: [] };
 }
 
 /**

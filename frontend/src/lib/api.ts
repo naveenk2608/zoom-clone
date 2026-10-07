@@ -1,5 +1,6 @@
 import { API_URL } from "@/lib/config";
 import type {
+  IceServerOut,
   InstantIn,
   JoinIn,
   JoinOut,
@@ -116,4 +117,8 @@ export function startMeeting(code: string): Promise<JoinOut> {
 
 export function joinMeeting(code: string, body: JoinIn): Promise<JoinOut> {
   return request("POST", `/api/meetings/${code}/join`, body);
+}
+
+export function getIceServers(): Promise<IceServerOut[]> {
+  return request("GET", "/api/ice-servers");
 }

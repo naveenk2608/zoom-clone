@@ -24,6 +24,7 @@ export function usePeerConnections(
   send: Send,
   audioTrack: MediaStreamTrack | null,
   videoTrack: MediaStreamTrack | null,
+  rtcConfig: RTCConfiguration, // the ICE servers, loaded before the room opened
 ) {
   const peersRef = useRef(new Map<number, Peer>());
   const tracksRef = useRef<LocalTracks>({ audio: null, video: null });
@@ -61,7 +62,7 @@ export function usePeerConnections(
   /** A fresh connection to one participant, replacing any older one (they refreshed). */
   function createPeer(id: number): Peer {
     closePeer(id);
-    const peer = newPeer();
+    const peer = newPeer(rtcConfig);
     let received = new MediaStream();
 
     peer.pc.onicecandidate = (event) => {

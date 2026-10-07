@@ -20,11 +20,12 @@ type MeetingRoomProps = {
   code: string;
   meeting: MeetingOut;
   session: JoinSession;
+  rtcConfig: RTCConfiguration; // STUN and TURN servers for the peer connections
 };
 
 /** The live room: header, tiles, toolbar, and the Chat and Participants panels on the right. */
-export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
-  const room = useMeetingRoom(code, session);
+export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomProps) {
+  const room = useMeetingRoom(code, session, rtcConfig);
   const copyText = useCopyText();
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);

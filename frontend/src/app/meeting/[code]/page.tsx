@@ -8,14 +8,16 @@ import { MeetingStatusScreen } from "@/components/meeting/MeetingStatusScreen";
 import { errorMessage, getMeeting } from "@/lib/api";
 import { loadJoinSession, type JoinSession } from "@/lib/joinSession";
 import { isMeetingCode } from "@/lib/meetingCode";
+import { loadRtcConfig } from "@/lib/webrtc";
 import type { MeetingOut } from "@/types/api";
 
 type Entry = {
   meeting: MeetingOut;
   session: JoinSession;
+  rtcConfig: RTCConfiguration;
 };
 
-/** The meeting room: loads the meeting, then hands over to the live room. */
+/** The meeting room: loads the meeting and the ICE servers, then hands over to the live room. */
 export default function MeetingRoomPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
@@ -36,9 +38,12 @@ export default function MeetingRoomPage() {
     }
 
     let ignore = false;
-    getMeeting(code)
-      .then((meeting) => {
-        if (!ignore) setEntry({ meeting, session });
+    // The ICE servers load alongside the meeting, so they are ready before the
+    // room connects and any peer connection is made. loadRtcConfig never fails:
+    // it falls back to STUN only.
+    Promise.all([getMeeting(code), loadRtcConfig()])
+      .then(([meeting, rtcConfig]) => {
+        if (!ignore) setEntry({ meeting, session, rtcConfig });
       })
       .catch((caught: unknown) => {
         if (!ignore) setError(errorMessage(caught));
@@ -58,5 +63,12 @@ export default function MeetingRoomPage() {
       </main>
     );
   }
-  return <MeetingRoom code={code} meeting={entry.meeting} session={entry.session} />;
+  return (
+    <MeetingRoom
+      code={code}
+      meeting={entry.meeting}
+      session={entry.session}
+      rtcConfig={entry.rtcConfig}
+    />
+  );
 }

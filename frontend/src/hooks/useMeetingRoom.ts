@@ -27,7 +27,7 @@ export interface RoomPerson {
  * Everything the room screen needs: who is here, the media, our own mic,
  * camera and screen share, the chat, host controls, and Leave / End.
  */
-export function useMeetingRoom(code: string, session: JoinSession) {
+export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RTCConfiguration) {
   const router = useRouter();
   const showToast = useToast();
   // The state we entered with. The socket connects once with these; later
@@ -56,7 +56,7 @@ export function useMeetingRoom(code: string, session: JoinSession) {
   });
   // While we share our screen, it goes out in place of the camera.
   const outgoingVideo = share.screenTrack ?? media.videoTrack;
-  const peers = usePeerConnections(send, media.audioTrack, outgoingVideo);
+  const peers = usePeerConnections(send, media.audioTrack, outgoingVideo, rtcConfig);
   const chat = useChat(send);
 
   // Tell the others our mic, camera and screen-share state, and save the mic
