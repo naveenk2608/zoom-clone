@@ -10,12 +10,17 @@ export interface SelfInfo {
   role: ParticipantRole;
 }
 
-/** Someone else in the meeting, with their mic, camera and screen-share state. */
+/** Someone else in the meeting, with their mic, camera and screen-share state, and their hand. */
 export interface RoomParticipant extends SelfInfo {
   audio: boolean;
   video: boolean; // the camera
   screen: boolean; // sharing the screen, which they then send in place of the camera
+  hand_raised: boolean;
 }
+
+/** The React palette, in Zoom's order. The server refuses anything else. */
+export const REACTIONS = ["👏", "👍", "❤️", "😂", "😮", "🎉"] as const;
+export type Reaction = (typeof REACTIONS)[number];
 
 /** A chat message as the server delivers it: saved, with its id and time. */
 export interface ChatMessage {
@@ -37,6 +42,8 @@ export type ServerMessage =
   | { type: "media_state"; participant_id: number; audio: boolean; video: boolean; screen: boolean }
   | { type: "signal"; from: number; data: SignalData }
   | ({ type: "chat" } & ChatMessage) // to everyone, the sender included
+  | { type: "reaction"; participant_id: number; emoji: Reaction } // to everyone, the sender included
+  | { type: "hand"; participant_id: number; raised: boolean } // to everyone, the sender included
   | { type: "force_mute" } // the host muted us: mute the mic and send media_state
   | { type: "removed" } // the host removed us; the socket then closes with CLOSE_REMOVED
   | { type: "meeting_ended" }
@@ -46,6 +53,9 @@ export type ClientMessage =
   | { type: "media_state"; audio: boolean; video: boolean; screen: boolean }
   | { type: "signal"; to: number; data: SignalData }
   | { type: "chat"; body: string }
+  | { type: "reaction"; emoji: Reaction }
+  | { type: "raise_hand" }
+  | { type: "lower_hand"; participant_id?: number } // someone else's hand: host only
   | { type: "leave" }
   // Host only; the server refuses them from anyone else.
   | { type: "host_mute_all" }

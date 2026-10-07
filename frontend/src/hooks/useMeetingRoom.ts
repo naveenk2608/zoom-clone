@@ -7,10 +7,11 @@ import { useLocalMedia } from "@/hooks/useLocalMedia";
 import { useMediaDevices, type RoomDevices } from "@/hooks/useMediaDevices";
 import { useMeetingSocket } from "@/hooks/useMeetingSocket";
 import { usePeerConnections } from "@/hooks/usePeerConnections";
+import { useReactions } from "@/hooks/useReactions";
 import { useScreenShare } from "@/hooks/useScreenShare";
 import { clearJoinSession, saveJoinSession, type JoinSession } from "@/lib/joinSession";
 import type { ParticipantRole } from "@/types/api";
-import type { ServerMessage } from "@/types/ws";
+import type { Reaction, ServerMessage } from "@/types/ws";
 
 /** One person in the meeting, as the grid and the Participants panel show them. */
 export interface RoomPerson {
@@ -22,6 +23,8 @@ export interface RoomPerson {
   screen: boolean; // sharing the screen: their video is the screen, not the camera
   isMe: boolean;
   pinned: boolean; // we pinned them to the main tile; only on our screen
+  handRaised: boolean;
+  reaction: Reaction | null; // shown on their tile for a few seconds after they react
   stream: MediaStream | null; // their video and mic; for us, only our video
 }
 
@@ -53,12 +56,13 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
   // Who we pinned to the main tile, or null. Nobody else sees it.
   const [pinnedId, setPinnedId] = useState<number | null>(null);
 
-  // Socket messages also go to the peer connections and the chat, which are
-  // set up just below because they need the socket's `send`. This runs only
-  // when a message arrives, by which time both exist.
+  // Socket messages also go to the peer connections, the chat and the
+  // reactions, which are set up just below because they need the socket's
+  // `send`. This runs only when a message arrives, by which time they exist.
   function handleSocketMessage(message: ServerMessage) {
     peers.handleMessage(message);
     chat.handleMessage(message);
+    reactions.handleMessage(message);
     if (message.type === "force_mute") {
       media.mute(); // the media_state effect below tells everyone
       showToast("The host has muted you.");
@@ -79,6 +83,7 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
   const outgoingVideo = share.screenTrack ?? media.videoTrack;
   const peers = usePeerConnections(send, media.audioTrack, outgoingVideo, rtcConfig);
   const chat = useChat(send);
+  const reactions = useReactions(send, session.participant_id);
 
   // Tell the others our mic, camera and screen-share state, and save the mic
   // and camera so a refresh comes back the same. Also sent once connected, in
@@ -113,6 +118,8 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     screen: share.sharing,
     isMe: true,
     pinned: false, // only other people can be pinned
+    handRaised: reactions.handRaised,
+    reaction: reactions.reactions.get(session.participant_id)?.emoji ?? null,
     stream: share.preview ?? media.preview,
   };
   const people = [
@@ -126,6 +133,8 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
       screen: other.screen,
       isMe: false,
       pinned: other.id === pinnedId,
+      handRaised: other.hand_raised,
+      reaction: reactions.reactions.get(other.id)?.emoji ?? null,
       stream: peers.streams.get(other.id) ?? null,
     })),
   ];
@@ -149,9 +158,12 @@ export function useMeetingRoom(code: string, session: JoinSession, rtcConfig: RT
     toggleShare: share.toggleShare,
     chatMessages: chat.messages,
     sendChat: chat.sendMessage,
+    react: reactions.react,
+    toggleHand: reactions.toggleHand,
     leave,
     // Host controls. The server checks the role and answers with the effects:
-    // media_state from each muted person, participant_left, meeting_ended.
+    // media_state from each muted person, participant_left, meeting_ended, hand.
+    lowerHand: reactions.lowerHand,
     muteAll: () => send({ type: "host_mute_all" }),
     mute: (participantId: number) => send({ type: "host_mute", participant_id: participantId }),
     remove: (participantId: number) => send({ type: "host_remove", participant_id: participantId }),

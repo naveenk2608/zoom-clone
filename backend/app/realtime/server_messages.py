@@ -9,7 +9,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.models.participant import ParticipantRole
-from app.realtime.messages import SignalData
+from app.realtime.messages import Reaction, SignalData
+
 
 class SelfOut(BaseModel):
     id: int
@@ -24,6 +25,7 @@ class PersonOut(BaseModel):
     audio: bool
     video: bool
     screen: bool
+    hand_raised: bool
 
 
 class Welcome(BaseModel):
@@ -70,6 +72,22 @@ class ChatOut(BaseModel):
     sent_at: datetime  # UTC
 
 
+class ReactionOut(BaseModel):
+    """Someone reacted. Clients show it on that person's tile for a few seconds."""
+
+    type: Literal["reaction"] = "reaction"
+    participant_id: int
+    emoji: Reaction
+
+
+class HandOut(BaseModel):
+    """Someone raised or lowered their hand (or the host lowered it for them)."""
+
+    type: Literal["hand"] = "hand"
+    participant_id: int
+    raised: bool
+
+
 class ForceMute(BaseModel):
     """The host muted us: the client mutes its mic and reports its new media_state."""
 
@@ -98,6 +116,8 @@ ServerMessage = (
     | MediaStateOut
     | SignalOut
     | ChatOut
+    | ReactionOut
+    | HandOut
     | ForceMute
     | Removed
     | MeetingEnded

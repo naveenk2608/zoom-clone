@@ -58,6 +58,7 @@ def test_welcome_lists_the_others_and_the_others_hear_of_the_newcomer(
                 "audio": False,
                 "video": True,
                 "screen": False,
+                "hand_raised": False,
             }
             assert guest_socket.receive_json()["participants"] == [host_entry]
             assert host_socket.receive_json() == {
@@ -69,6 +70,7 @@ def test_welcome_lists_the_others_and_the_others_hear_of_the_newcomer(
                     "audio": True,
                     "video": False,
                     "screen": False,
+                    "hand_raised": False,
                 },
             }
 

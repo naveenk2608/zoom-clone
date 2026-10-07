@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import get_session_factory
-from app.realtime import actions, host_actions
+from app.realtime import actions, host_actions, reactions
 from app.realtime.connection_manager import Connection
 from app.realtime.messages import HOST_ONLY, client_message_adapter, close_code_for
 from app.services.errors import ServiceError
@@ -68,6 +68,12 @@ async def receive_messages(factory: actions.SessionFactory, connection: Connecti
             )
         elif message.type == "chat":
             await actions.send_chat(factory, connection, message.body)
+        elif message.type == "reaction":
+            await reactions.send_reaction(connection, message.emoji)
+        elif message.type == "raise_hand":
+            await reactions.raise_hand(connection)
+        elif message.type == "lower_hand":
+            await reactions.lower_hand(connection, message.participant_id)
         elif message.type == "leave":
             await actions.leave(factory, connection, dropped=False)
             await actions.manager.close(connection, NORMAL_CLOSE)

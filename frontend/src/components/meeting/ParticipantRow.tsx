@@ -13,11 +13,12 @@ type ParticipantRowProps = {
   person: RoomPerson;
   canManage: boolean; // we are the host and this is someone else: show the "…" menu
   onMute: () => void;
+  onLowerHand: () => void;
   onRemove: () => void;
 };
 
-/** One person in the Participants panel: avatar, name, mic and camera state, host menu. */
-export function ParticipantRow({ person, canManage, onMute, onRemove }: ParticipantRowProps) {
+/** One person in the Participants panel: avatar, name, raised hand, mic and camera state, host menu. */
+export function ParticipantRow({ person, canManage, onMute, onLowerHand, onRemove }: ParticipantRowProps) {
   return (
     <li className="flex items-center gap-3 py-2">
       <Avatar
@@ -28,6 +29,11 @@ export function ParticipantRow({ person, canManage, onMute, onRemove }: Particip
       <span className="min-w-0 flex-1 truncate text-[15px]">
         {person.name} <span className="text-white/60">{roleLabel(person)}</span>
       </span>
+      {person.handRaised && (
+        <span role="img" aria-label="Hand raised" className="text-lg leading-none">
+          ✋
+        </span>
+      )}
       {person.audio ? (
         <Mic size={18} className="text-white/60" aria-label="Mic on" />
       ) : (
@@ -52,6 +58,7 @@ export function ParticipantRow({ person, canManage, onMute, onRemove }: Particip
           </RoomMenuTrigger>
           <RoomMenuContent>
             <RoomMenuItem label="Mute" onSelect={onMute} disabled={!person.audio} />
+            {person.handRaised && <RoomMenuItem label="Lower Hand" onSelect={onLowerHand} />}
             <RoomMenuItem label="Remove" onSelect={onRemove} />
           </RoomMenuContent>
         </RoomMenu>

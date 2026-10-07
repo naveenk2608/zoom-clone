@@ -66,6 +66,7 @@ export function VideoTile({
         />
       )}
       {!showsVideo && <CameraOffLook person={person} compact={compact} />}
+      <TileBadges person={person} compact={compact} />
       <div
         className={clsx(
           "absolute flex items-center gap-1.5 rounded bg-black/60 text-white",
@@ -96,6 +97,30 @@ export function VideoTile({
           compact={compact}
           onTogglePin={() => onTogglePin(person)}
         />
+      )}
+    </div>
+  );
+}
+
+/** The top-left corner, as in Zoom: a raised hand until it is lowered, and the latest reaction for a few seconds. */
+function TileBadges({ person, compact }: { person: RoomPerson; compact: boolean }) {
+  if (!person.handRaised && person.reaction === null) return null;
+  return (
+    <div
+      className={clsx(
+        "absolute flex gap-1",
+        compact ? "top-1 left-1 text-lg" : "top-2 left-2 text-3xl md:text-4xl",
+      )}
+    >
+      {person.handRaised && (
+        <span role="img" aria-label="Hand raised" className="rounded-md bg-black/60 px-1">
+          ✋
+        </span>
+      )}
+      {person.reaction !== null && (
+        <span role="img" aria-label={`Reaction ${person.reaction}`} className="px-1">
+          {person.reaction}
+        </span>
       )}
     </div>
   );

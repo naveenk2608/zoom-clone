@@ -130,6 +130,8 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
           onToggleParticipants={() => setParticipantsOpen((open) => !open)}
           onOpenParticipants={() => setParticipantsOpen(true)}
           onToggleChat={toggleChat}
+          onReact={room.react}
+          onToggleHand={room.toggleHand}
           onToggleShare={room.toggleShare}
           onMuteAll={room.muteAll}
           onToggleEndMenu={() => setEndMenuOpen((open) => !open)}
@@ -151,6 +153,7 @@ export function MeetingRoom({ code, meeting, session, rtcConfig }: MeetingRoomPr
               onInvite={() => copyText(meeting.invite_link, "Invite link copied")}
               onMuteAll={room.muteAll}
               onMute={room.mute}
+              onLowerHand={room.lowerHand}
               onRemove={room.remove}
               onClose={() => setParticipantsOpen(false)}
             />

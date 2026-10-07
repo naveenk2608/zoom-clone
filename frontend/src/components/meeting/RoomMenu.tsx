@@ -51,6 +51,25 @@ export function RoomMenuItem({ label, onSelect, disabled }: RoomMenuItemProps) {
   );
 }
 
+type RoomMenuEmojiItemProps = {
+  emoji: string;
+  label: string; // what a screen reader says instead of the emoji
+  onSelect: () => void;
+};
+
+/** A square item showing one large emoji, for a row of reactions. */
+export function RoomMenuEmojiItem({ emoji, label, onSelect }: RoomMenuEmojiItemProps) {
+  return (
+    <DropdownMenu.Item
+      aria-label={label}
+      onSelect={onSelect}
+      className="flex size-10 cursor-pointer items-center justify-center rounded-lg text-2xl outline-none data-highlighted:bg-white/10"
+    >
+      {emoji}
+    </DropdownMenu.Item>
+  );
+}
+
 /** One choice in a RoomMenuRadioGroup, with a tick when it is the group's value. */
 export function RoomMenuRadioItem({ value, label }: { value: string; label: string }) {
   return (

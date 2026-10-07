@@ -12,6 +12,7 @@ type ParticipantsPanelProps = {
   onInvite: () => void; // copies the invite link
   onMuteAll: () => void;
   onMute: (participantId: number) => void;
+  onLowerHand: (participantId: number) => void;
   onRemove: (participantId: number) => void;
   onClose: () => void;
 };
@@ -21,6 +22,8 @@ export function ParticipantsPanel(props: ParticipantsPanelProps) {
   const { people, isHost, onRemove } = props;
   // The person the "Remove?" dialog is asking about.
   const [removing, setRemoving] = useState<RoomPerson | null>(null);
+  // Raised hands first, as in Zoom. The sort is stable, so otherwise the order stays.
+  const listed = [...people].sort((a, b) => Number(b.handRaised) - Number(a.handRaised));
 
   function confirmRemove() {
     if (removing !== null) onRemove(removing.id);
@@ -30,12 +33,13 @@ export function ParticipantsPanel(props: ParticipantsPanelProps) {
   return (
     <RoomPanel title={`Participants (${people.length})`} onClose={props.onClose}>
       <ul className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {people.map((person) => (
+        {listed.map((person) => (
           <ParticipantRow
             key={person.id}
             person={person}
             canManage={isHost && !person.isMe}
             onMute={() => props.onMute(person.id)}
+            onLowerHand={() => props.onLowerHand(person.id)}
             onRemove={() => setRemoving(person)}
           />
         ))}

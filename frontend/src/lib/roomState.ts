@@ -9,6 +9,8 @@ const SERVER_MESSAGE_TYPES = [
   "media_state",
   "signal",
   "chat",
+  "reaction",
+  "hand",
   "force_mute",
   "removed",
   "meeting_ended",
@@ -50,6 +52,10 @@ export function applyMessage(others: RoomParticipant[], message: ServerMessage):
         p.id === message.participant_id
           ? { ...p, audio: message.audio, video: message.video, screen: message.screen }
           : p,
+      );
+    case "hand":
+      return others.map((p) =>
+        p.id === message.participant_id ? { ...p, hand_raised: message.raised } : p,
       );
     default:
       return others;

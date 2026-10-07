@@ -15,11 +15,13 @@ import {
 import { AudioMenuItems, VideoMenuItems } from "@/components/meeting/DeviceMenus";
 import { EndMeetingMenu } from "@/components/meeting/EndMeetingMenu";
 import { MoreMenu } from "@/components/meeting/MoreMenu";
+import { ReactionItems } from "@/components/meeting/ReactionItems";
 import { RoomMenuItem } from "@/components/meeting/RoomMenu";
 import { ToolbarButton } from "@/components/meeting/ToolbarButton";
 import { ToolbarMenuButton } from "@/components/meeting/ToolbarMenuButton";
 import type { RoomDevices } from "@/hooks/useMediaDevices";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
+import type { Reaction } from "@/types/ws";
 
 const RED_ICON = "text-zoom-red";
 
@@ -37,6 +39,8 @@ type ToolbarProps = {
   onToggleParticipants: () => void;
   onOpenParticipants: () => void;
   onToggleChat: () => void;
+  onReact: (emoji: Reaction) => void;
+  onToggleHand: () => void;
   onToggleShare: () => void;
   onMuteAll: () => void;
   onToggleEndMenu: () => void;
@@ -107,7 +111,13 @@ export function Toolbar(props: ToolbarProps) {
           caret
           show="wide"
         />
-        <ToolbarButton icon={Heart} label="React" show="wide" />
+        <ToolbarMenuButton icon={Heart} label="React" show="wide">
+          <ReactionItems
+            handRaised={me.handRaised}
+            onReact={props.onReact}
+            onToggleHand={props.onToggleHand}
+          />
+        </ToolbarMenuButton>
         <ToolbarButton
           icon={ArrowUpFromLine}
           label={props.sharing ? "Stop Share" : "Share"}
@@ -129,7 +139,10 @@ export function Toolbar(props: ToolbarProps) {
           isHost={me.role === "host"}
           unreadCount={props.unreadCount}
           sharing={props.sharing}
+          handRaised={me.handRaised}
           onToggleChat={props.onToggleChat}
+          onReact={props.onReact}
+          onToggleHand={props.onToggleHand}
           onToggleShare={props.onToggleShare}
           onMuteAll={props.onMuteAll}
         />

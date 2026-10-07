@@ -69,6 +69,26 @@ class ChatIn(BaseModel):
     body: ChatBody
 
 
+# The React palette, as in Zoom. Anything else is refused. The heart is two
+# code points (U+2764 U+FE0F); frontend/src/types/ws.ts has the same list.
+Reaction = Literal["👏", "👍", "❤️", "😂", "😮", "🎉"]
+
+
+class ReactionIn(BaseModel):
+    type: Literal["reaction"]
+    emoji: Reaction
+
+
+class RaiseHandIn(BaseModel):
+    type: Literal["raise_hand"]
+
+
+class LowerHandIn(BaseModel):
+    type: Literal["lower_hand"]
+    # Someone else's hand, which only the host may lower. Left out: your own.
+    participant_id: int | None = None
+
+
 # A WebRTC offer, answer or ICE candidate. The server only passes it on, so it
 # is kept as plain JSON rather than modelled field by field.
 SignalData = dict[str, JsonValue]
@@ -85,6 +105,9 @@ ClientMessage = Annotated[
     | LeaveIn
     | SignalIn
     | ChatIn
+    | ReactionIn
+    | RaiseHandIn
+    | LowerHandIn
     | HostEndIn
     | HostMuteAllIn
     | HostMuteIn

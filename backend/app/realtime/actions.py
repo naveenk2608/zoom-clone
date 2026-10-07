@@ -19,6 +19,7 @@ from app.realtime.server_messages import (
     ChatOut,
     ChatSender,
     ErrorOut,
+    HandOut,
     MediaStateOut,
     ParticipantJoined,
     ParticipantLeft,
@@ -89,6 +90,10 @@ async def enter(
         else:
             # A refresh: the others already list this person, so only the flags may have changed.
             await manager.broadcast(others, media_state_message(connection))
+            if replaced.hand_raised:
+                # A new connection starts with its hand down, as rejoining does in Zoom.
+                lowered = HandOut(participant_id=connection.participant_id, raised=False)
+                await manager.broadcast(others, lowered)
             await manager.close(replaced, CLOSE_INVALID_TOKEN)
         return connection
 

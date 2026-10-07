@@ -11,7 +11,7 @@ from app.realtime.server_messages import PersonOut, ServerMessage
 
 @dataclass
 class Connection:
-    """One participant's open WebSocket and their current mic, camera and screen-share state."""
+    """One participant's open WebSocket, their mic, camera and screen-share state, and their hand."""
 
     websocket: WebSocket
     meeting_code: str
@@ -22,6 +22,7 @@ class Connection:
     audio: bool
     video: bool
     screen: bool = False  # a new connection is never sharing yet
+    hand_raised: bool = False  # nor has its hand up
 
     def to_person(self) -> PersonOut:
         return PersonOut(
@@ -31,6 +32,7 @@ class Connection:
             audio=self.audio,
             video=self.video,
             screen=self.screen,
+            hand_raised=self.hand_raised,
         )
 
 
