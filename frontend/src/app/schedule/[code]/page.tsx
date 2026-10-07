@@ -7,6 +7,7 @@ import { ScheduleForm } from "@/components/schedule/ScheduleForm";
 import { ScheduleLayout } from "@/components/schedule/ScheduleLayout";
 import { useResource } from "@/hooks/useResource";
 import { getMeeting } from "@/lib/api";
+import { ownsMeeting } from "@/lib/hostKeys";
 import { isMeetingCode } from "@/lib/meetingCode";
 import { INVALID_MEETING_ID } from "@/lib/meetingStatus";
 import type { MeetingOut } from "@/types/api";
@@ -47,6 +48,10 @@ function EditableMeeting({ meeting }: { meeting: MeetingOut }) {
   }
   if (meeting.meeting_type === "instant") {
     return <p className="text-zoom-red">An instant meeting can&apos;t be edited.</p>;
+  }
+  // Without the meeting's host key the server would refuse the save.
+  if (!ownsMeeting(meeting)) {
+    return <p className="text-zoom-red">Only the host can edit this meeting.</p>;
   }
   return <ScheduleForm meeting={meeting} />;
 }

@@ -85,7 +85,8 @@ def test_a_cancelled_meeting_is_gone(client: TestClient, db: Session, alex: User
 
 
 def test_an_ended_instant_meeting_is_gone(client: TestClient, db: Session) -> None:
-    code = client.post("/api/meetings/instant").json()["meeting"]["meeting_code"]
+    created = client.post("/api/meetings/instant").json()
+    code = created["meeting"]["meeting_code"]
     session = db.scalar(
         select(MeetingSession).join(MeetingSession.meeting).where(Meeting.meeting_code == code)
     )
@@ -94,7 +95,9 @@ def test_an_ended_instant_meeting_is_gone(client: TestClient, db: Session) -> No
     db.commit()
 
     join = client.post(f"/api/meetings/{code}/join", json={"display_name": "Sam"})
-    start = client.post(f"/api/meetings/{code}/start")
+    start = client.post(
+        f"/api/meetings/{code}/start", headers={"X-Host-Key": created["host_key"]}
+    )
 
     assert client.get(f"/api/meetings/{code}").json()["status"] == "ended"
     assert join.status_code == 410
@@ -166,7 +169,7 @@ def test_starting_while_someone_joins_shares_one_session(
         assert host_view.live_session is None  # read before the attendee's join commits
         winner_id = join_meeting(attendee, load_meeting(attendee, meeting_id), "Sam").session_id
 
-        host_join = start_meeting(host, host_user, host_view)
+        host_join = start_meeting(host, host_user, host_view, None)
 
         assert host_join.session_id == winner_id
         assert host_join.role == "host"

@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -31,3 +31,6 @@ def get_meeting_from_path(code: str, db: DbSession) -> Meeting:
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 MeetingByCode = Annotated[Meeting, Depends(get_meeting_from_path)]
+# The key the browser got when it created the meeting (services/host_keys.py). Optional:
+# meetings without a key don't need it, and a missing one is refused with the same 403.
+HostKey = Annotated[str | None, Header(alias="X-Host-Key")]

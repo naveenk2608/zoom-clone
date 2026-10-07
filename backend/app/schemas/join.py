@@ -22,3 +22,9 @@ class JoinOut(BaseModel):
     meeting: MeetingOut
     participant: ParticipantOut
     join_token: str  # sent with the WebSocket connection to prove who this is
+
+
+class JoinWithKeyOut(JoinOut):
+    """The answer to New meeting: the only time its host key is sent."""
+
+    host_key: str

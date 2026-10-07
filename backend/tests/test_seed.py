@@ -90,7 +90,7 @@ def test_the_seed_runs_only_once(db: Session) -> None:
 
 
 def test_startup_ends_sessions_left_live(db: Session, alex: User) -> None:
-    participant = lifecycle.create_instant_meeting(db, alex, None)
+    participant, _ = lifecycle.create_instant_meeting(db, alex, None)
     session_id = participant.session_id
 
     assert lifecycle.close_stale_sessions(db) == 1

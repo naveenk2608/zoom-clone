@@ -85,10 +85,12 @@ def test_the_title_is_trimmed_and_cannot_be_blank(client: TestClient) -> None:
 
 
 def test_the_host_can_edit_a_meeting(client: TestClient) -> None:
-    code = client.post("/api/meetings", json=schedule_body()).json()["meeting_code"]
+    created = client.post("/api/meetings", json=schedule_body()).json()
 
     response = client.put(
-        f"/api/meetings/{code}", json=schedule_body(title="Renamed", start_time="15:00")
+        f"/api/meetings/{created['meeting_code']}",
+        json=schedule_body(title="Renamed", start_time="15:00"),
+        headers={"X-Host-Key": created["host_key"]},
     )
 
     assert response.status_code == 200
@@ -106,9 +108,16 @@ def test_only_the_host_can_edit(client: TestClient, db: Session) -> None:
 
 
 def test_cancelled_and_instant_meetings_cannot_be_edited(client: TestClient) -> None:
-    scheduled = client.post("/api/meetings", json=schedule_body()).json()["meeting_code"]
-    client.delete(f"/api/meetings/{scheduled}")
-    instant = client.post("/api/meetings/instant").json()["meeting"]["meeting_code"]
+    scheduled = client.post("/api/meetings", json=schedule_body()).json()
+    scheduled_url = f"/api/meetings/{scheduled['meeting_code']}"
+    scheduled_key = {"X-Host-Key": scheduled["host_key"]}
+    client.delete(scheduled_url, headers=scheduled_key)
+    instant = client.post("/api/meetings/instant").json()
+    instant_url = f"/api/meetings/{instant['meeting']['meeting_code']}"
+    instant_key = {"X-Host-Key": instant["host_key"]}
 
-    assert client.put(f"/api/meetings/{scheduled}", json=schedule_body()).status_code == 409
-    assert client.put(f"/api/meetings/{instant}", json=schedule_body()).status_code == 409
+    edit_cancelled = client.put(scheduled_url, json=schedule_body(), headers=scheduled_key)
+    edit_instant = client.put(instant_url, json=schedule_body(), headers=instant_key)
+
+    assert edit_cancelled.status_code == 409
+    assert edit_instant.status_code == 409

@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Meeting, Participant, User
-from app.schemas.join import JoinOut, ParticipantOut
-from app.schemas.meeting import HostOut, MeetingOut, MeetingStatus, ScheduleIn
+from app.schemas.join import JoinOut, JoinWithKeyOut, ParticipantOut
+from app.schemas.meeting import HostOut, MeetingOut, MeetingStatus, MeetingWithKeyOut, ScheduleIn
 from app.services.errors import Conflict, InvalidInput, NotAllowed, NotFound
+from app.services.host_keys import issue_host_key, require_host_key
 from app.services.meeting_codes import add_with_unique_code, is_valid_meeting_code
 from app.utils.time import local_to_utc, utc_now, utc_to_local
 
@@ -63,8 +64,13 @@ def to_meeting_out(meeting: Meeting) -> MeetingOut:
         participant_video_on=meeting.participant_video_on,
         invite_link=f"{settings.frontend_base_url}/j/{meeting.meeting_code}",
         host=HostOut(name=meeting.host.name, avatar_color=meeting.host.avatar_color),
+        has_host_key=meeting.host_key_hash is not None,
         created_at=meeting.created_at,
     )
+
+
+def to_meeting_with_key_out(meeting: Meeting, host_key: str) -> MeetingWithKeyOut:
+    return MeetingWithKeyOut(**to_meeting_out(meeting).model_dump(), host_key=host_key)
 
 
 def to_join_out(participant: Participant) -> JoinOut:
@@ -77,16 +83,25 @@ def to_join_out(participant: Participant) -> JoinOut:
     )
 
 
-def create_scheduled_meeting(db: Session, host: User, data: ScheduleIn) -> Meeting:
+def to_join_with_key_out(participant: Participant, host_key: str) -> JoinWithKeyOut:
+    return JoinWithKeyOut(**to_join_out(participant).model_dump(), host_key=host_key)
+
+
+def create_scheduled_meeting(db: Session, host: User, data: ScheduleIn) -> tuple[Meeting, str]:
+    """Returns the meeting and its host key, which is never sent again."""
     meeting = Meeting(host=host, meeting_type="scheduled")
     apply_schedule(meeting, data)
+    host_key = issue_host_key(meeting)
     add_with_unique_code(db, meeting)
     db.commit()
-    return meeting
+    return meeting, host_key
 
 
-def update_scheduled_meeting(db: Session, user: User, meeting: Meeting, data: ScheduleIn) -> None:
+def update_scheduled_meeting(
+    db: Session, user: User, meeting: Meeting, data: ScheduleIn, host_key: str | None
+) -> None:
     require_host(user, meeting, "Only the host can edit this meeting.")
+    require_host_key(meeting, host_key)
     if meeting.cancelled_at is not None:
         raise Conflict("A cancelled meeting can't be edited.")
     if meeting.meeting_type == "instant":
@@ -95,9 +110,10 @@ def update_scheduled_meeting(db: Session, user: User, meeting: Meeting, data: Sc
     db.commit()
 
 
-def cancel_meeting(db: Session, user: User, meeting: Meeting) -> None:
+def cancel_meeting(db: Session, user: User, meeting: Meeting, host_key: str | None) -> None:
     """Soft delete: the meeting and its past sessions stay in the database."""
     require_host(user, meeting, "Only the host can delete this meeting.")
+    require_host_key(meeting, host_key)
     if meeting.live_session is not None:
         raise Conflict("This meeting is in progress. End it before deleting it.")
     if meeting.cancelled_at is None:

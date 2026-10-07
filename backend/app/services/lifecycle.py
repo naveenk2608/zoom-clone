@@ -10,25 +10,32 @@ from sqlalchemy.orm import Session
 from app.models import Meeting, MeetingSession, Participant, User
 from app.models.participant import ParticipantRole
 from app.services.errors import Conflict, Gone, NotAllowed
+from app.services.host_keys import issue_host_key, require_host_key
 from app.services.meeting_codes import add_with_unique_code
 from app.utils.time import utc_now
 
 ALREADY_HOSTED = "This meeting is already being hosted on another device."
 
 
-def create_instant_meeting(db: Session, host: User, title: str | None) -> Participant:
-    """New meeting: the meeting, its live session and the host's participant row, in one commit."""
+def create_instant_meeting(
+    db: Session, host: User, title: str | None
+) -> tuple[Participant, str]:
+    """New meeting: the meeting, its live session and the host's participant row, in one commit.
+
+    Returns the host's participant row and the meeting's host key, which is never sent again.
+    """
     if title is None:
         title = f"{host.name}'s Zoom Meeting"
     meeting = Meeting(host=host, meeting_type="instant", title=title)
+    host_key = issue_host_key(meeting)
     add_with_unique_code(db, meeting)  # the first write in this transaction
     session = start_session(db, meeting)
     participant = add_participant(db, session, user=host, display_name=host.name, role="host")
     db.commit()
-    return participant
+    return participant, host_key
 
 
-def start_meeting(db: Session, user: User, meeting: Meeting) -> Participant:
+def start_meeting(db: Session, user: User, meeting: Meeting, host_key: str | None) -> Participant:
     """The host starts the meeting, or rejoins it if it is already live.
 
     A live session has at most one host in it. A host who refreshes the page
@@ -36,6 +43,7 @@ def start_meeting(db: Session, user: User, meeting: Meeting) -> Participant:
     """
     if meeting.host_id != user.id:
         raise NotAllowed("Only the host can start this meeting.")
+    require_host_key(meeting, host_key)
     check_can_join(meeting)
     live = meeting.live_session
     if live is not None and has_host_in_meeting(live):

@@ -112,9 +112,9 @@ def test_starting_on_two_devices_at_the_same_moment_makes_one_host(
         assert early_meeting is not None and early_user is not None
         assert late_meeting.live_session is None  # read before the early start commits
 
-        start_meeting(early, early_user, early_meeting)
+        start_meeting(early, early_user, early_meeting, None)  # factory meetings have no key
         with pytest.raises(Conflict):
-            start_meeting(late, late_user, late_meeting)
+            start_meeting(late, late_user, late_meeting, None)
 
     hosts = db.scalars(select(Participant).where(Participant.role == "host")).all()
     assert len(hosts) == 1

@@ -33,7 +33,13 @@ export interface MeetingOut {
   participant_video_on: boolean;
   invite_link: string;
   host: HostOut;
+  has_host_key: boolean; // Start, Edit and Delete then need the key from the browser that created it
   created_at: string;
+}
+
+/** The answer to scheduling a meeting: the only time its host key is sent. */
+export interface MeetingWithKeyOut extends MeetingOut {
+  host_key: string;
 }
 
 export interface RecentMeetingOut {
@@ -78,6 +84,11 @@ export interface JoinOut {
   meeting: MeetingOut;
   participant: ParticipantOut;
   join_token: string; // sent with the WebSocket connection to prove who this is
+}
+
+/** The answer to New meeting: the only time its host key is sent. */
+export interface JoinWithKeyOut extends JoinOut {
+  host_key: string;
 }
 
 /** One STUN or TURN server, from GET /api/ice-servers. Fits RTCPeerConnection's `iceServers`. */

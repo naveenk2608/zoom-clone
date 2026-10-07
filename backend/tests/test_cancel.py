@@ -39,8 +39,9 @@ def test_only_the_host_can_cancel(client: TestClient, db: Session) -> None:
 
 
 def test_a_live_meeting_cannot_be_cancelled(client: TestClient) -> None:
-    code = client.post("/api/meetings/instant").json()["meeting"]["meeting_code"]
+    created = client.post("/api/meetings/instant").json()
+    code = created["meeting"]["meeting_code"]
 
-    response = client.delete(f"/api/meetings/{code}")
+    response = client.delete(f"/api/meetings/{code}", headers={"X-Host-Key": created["host_key"]})
 
     assert response.status_code == 409

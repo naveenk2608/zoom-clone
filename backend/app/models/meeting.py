@@ -36,6 +36,8 @@ class Meeting(Base):
         ),
         CheckConstraint("length(title) BETWEEN 1 AND 200", name="ck_meetings_title_length"),
         CheckConstraint("length(description) <= 2000", name="ck_meetings_description_length"),
+        # A SHA-256 hash in hex. NULL for the seeded meetings, which anyone may manage.
+        CheckConstraint("length(host_key_hash) = 64", name="ck_meetings_host_key_hash_length"),
         Index("ix_meetings_host_start", "host_id", "scheduled_start"),
     )
 
@@ -51,6 +53,8 @@ class Meeting(Base):
     mute_on_entry: Mapped[bool] = mapped_column(default=False, server_default=false())
     host_video_on: Mapped[bool] = mapped_column(default=True, server_default=true())
     participant_video_on: Mapped[bool] = mapped_column(default=True, server_default=true())
+    # Proves which browser created the meeting; see services/host_keys.py.
+    host_key_hash: Mapped[str | None] = mapped_column(Text)
     cancelled_at: Mapped[datetime | None] = mapped_column(UTCDateTime)  # soft delete keeps history
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, onupdate=utc_now)

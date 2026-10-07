@@ -34,7 +34,14 @@ class MeetingOut(BaseModel):
     participant_video_on: bool
     invite_link: str
     host: HostOut
+    has_host_key: bool  # Start, Edit and Delete then need the key from the browser that created it
     created_at: datetime
+
+
+class MeetingWithKeyOut(MeetingOut):
+    """The answer to scheduling a meeting: the only time its host key is sent."""
+
+    host_key: str
 
 
 class RecentMeetingOut(BaseModel):
