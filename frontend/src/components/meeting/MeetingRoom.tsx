@@ -24,6 +24,15 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
   const copyText = useCopyText();
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [endMenuOpen, setEndMenuOpen] = useState(false);
+  // The browser refused to play sound before any click on the page (after a refresh, say).
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const [playToken, setPlayToken] = useState(0);
+
+  function enableAudio() {
+    // This click counts as the user gesture the browser wanted; the tiles try again.
+    setAudioBlocked(false);
+    setPlayToken((token) => token + 1);
+  }
 
   switch (room.status) {
     case "ended":
@@ -44,9 +53,21 @@ export function MeetingRoom({ code, meeting, session }: MeetingRoomProps) {
 
   return (
     <div className="flex h-screen bg-room-bg text-white">
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         <RoomHeader meeting={meeting} isHost={room.me.role === "host"} />
-        <VideoGrid people={room.people} />
+        {audioBlocked && (
+          <button
+            type="button"
+            onClick={enableAudio}
+            className="absolute top-14 left-1/2 z-20 -translate-x-1/2 rounded-lg bg-room-panel-raised px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-room-btn-active"
+          >
+            Click to enable audio
+          </button>
+        )}
+        <VideoGrid
+          people={room.people}
+          playback={{ playToken, onAutoplayBlocked: () => setAudioBlocked(true) }}
+        />
         <Toolbar
           me={room.me}
           participantCount={room.people.length}

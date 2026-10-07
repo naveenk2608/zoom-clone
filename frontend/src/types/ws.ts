@@ -15,16 +15,23 @@ export interface RoomParticipant extends SelfInfo {
   video: boolean;
 }
 
+/** A WebRTC offer or answer, or one ICE candidate. The server passes it on unread. */
+export type SignalData =
+  | { kind: "description"; description: RTCSessionDescriptionInit }
+  | { kind: "candidate"; candidate: RTCIceCandidateInit };
+
 export type ServerMessage =
   | { type: "welcome"; self: SelfInfo; participants: RoomParticipant[] }
   | { type: "participant_joined"; participant: RoomParticipant }
   | { type: "participant_left"; participant_id: number }
   | { type: "media_state"; participant_id: number; audio: boolean; video: boolean }
+  | { type: "signal"; from: number; data: SignalData }
   | { type: "meeting_ended" }
   | { type: "error"; message: string };
 
 export type ClientMessage =
   | { type: "media_state"; audio: boolean; video: boolean }
+  | { type: "signal"; to: number; data: SignalData }
   | { type: "leave" }
   | { type: "host_end" };
 

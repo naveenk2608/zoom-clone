@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { useToast } from "@/components/ui/Toast";
 import { WS_URL } from "@/lib/config";
@@ -9,6 +9,7 @@ import {
   CLOSE_REMOVED,
   type ClientMessage,
   type RoomParticipant,
+  type ServerMessage,
 } from "@/types/ws";
 
 export type SocketStatus =
@@ -26,14 +27,17 @@ type SocketOptions = {
   token: string;
   audio: boolean; // the mic and camera state to enter with, so others never see it flicker
   video: boolean;
+  onMessage: (message: ServerMessage) => void; // every message, after the room state is updated
 };
 
 /** The meeting's WebSocket: who else is here, whether we are connected, and a way to send. */
-export function useMeetingSocket({ code, token, audio, video }: SocketOptions) {
+export function useMeetingSocket({ code, token, audio, video, onMessage }: SocketOptions) {
   const showToast = useToast();
   const [status, setStatus] = useState<SocketStatus>("connecting");
   const [others, setOthers] = useState<RoomParticipant[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
+  // Always calls the latest onMessage, without reconnecting when it changes.
+  const deliver = useEffectEvent(onMessage);
 
   useEffect(() => {
     const flags = `audio=${audio ? 1 : 0}&video=${video ? 1 : 0}`;
@@ -51,6 +55,7 @@ export function useMeetingSocket({ code, token, audio, video }: SocketOptions) {
       if (message.type === "welcome") setStatus("live");
       if (message.type === "error") showToast(message.message);
       setOthers((current) => applyMessage(current, message));
+      deliver(message);
     };
 
     socket.onclose = (event) => {

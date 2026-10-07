@@ -81,3 +81,7 @@ A running log of design decisions, 1–2 lines each, grouped by build phase.
 - **Cancel replaces the toolbar while the End menu is open**, as in the reference screenshot. Escape also closes the menu.
 - **Rejoin reloads the page.** After a lost connection the room shows "Rejoin", which reloads. The page reads the saved join session again, so it reconnects with the latest mic and camera state.
 - **`/ws/ping` is gone**, together with its test.
+- **Signals are relayed as opaque JSON.** The server checks only `type` and `to`, and passes `data` (offer, answer or ICE candidate) to that participant in the same session. Typing the SDP on the server would add nothing.
+- **One `replaceTrack` effect for every track change.** `usePeerConnections` swaps the current mic and camera tracks into every peer whenever they change. That covers camera on/off and devices that open after the offer went out, with no renegotiation.
+- **A fresh `MediaStream` per received track.** `ontrack` builds a new stream holding the tracks so far, so React sees a new value and the tile's effect re-sets `srcObject`.
+- **Refresh rejoin needs no extra code.** The refreshed tab is a newcomer: `welcome` lists the others and it offers to each. An existing peer that gets an offer from an id it already knows closes the old connection and answers on a new one.

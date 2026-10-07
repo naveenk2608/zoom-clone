@@ -1,4 +1,4 @@
-import { VideoTile } from "@/components/meeting/VideoTile";
+import { VideoTile, type TilePlayback } from "@/components/meeting/VideoTile";
 import type { RoomPerson } from "@/hooks/useMeetingRoom";
 
 /**
@@ -11,11 +11,11 @@ function columnClasses(count: number): string {
   return "grid-cols-1 md:grid-cols-3";
 }
 
-export function VideoGrid({ people }: { people: RoomPerson[] }) {
+export function VideoGrid({ people, playback }: { people: RoomPerson[]; playback: TilePlayback }) {
   return (
     <div className={`grid min-h-0 flex-1 auto-rows-fr gap-2 overflow-y-auto p-2 ${columnClasses(people.length)}`}>
       {people.map((person) => (
-        <VideoTile key={person.id} person={person} />
+        <VideoTile key={person.id} person={person} playback={playback} />
       ))}
     </div>
   );

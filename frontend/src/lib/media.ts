@@ -18,6 +18,19 @@ export function openCamera(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({ video: CAMERA_CONSTRAINTS, audio: false });
 }
 
+/** Asks for the microphone. Rejects if it's blocked, missing or busy. */
+export function openMicrophone(): Promise<MediaStream> {
+  if (!navigator.mediaDevices) {
+    return Promise.reject(new DOMException("Not a secure page", "SecurityError"));
+  }
+  return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+}
+
+/** Mutes or unmutes a track. A disabled track keeps running but sends silence (or black). */
+export function setTrackEnabled(track: MediaStreamTrack, enabled: boolean): void {
+  track.enabled = enabled;
+}
+
 /** Stops every track, which releases the device and turns its light off. */
 export function stopStream(stream: MediaStream): void {
   stream.getTracks().forEach((track) => track.stop());

@@ -7,6 +7,7 @@ const SERVER_MESSAGE_TYPES = [
   "participant_joined",
   "participant_left",
   "media_state",
+  "signal",
   "meeting_ended",
   "error",
 ];
